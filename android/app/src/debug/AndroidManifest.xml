@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      Uniquement dans le build de debug : permet d'activer le connecteur de
+      démonstration sur un appareil ou un émulateur, sans compte Pronote.
+
+        adb shell am broadcast -a com.pronote.clay.DEMO
+
+      L'APK publié (release, non debuggable) ne contient ni ce receiver ni le
+      connecteur factice.
+    -->
+    <application>
+        <receiver
+            android:name=".debug.DemoModeReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.pronote.clay.DEMO" />
+            </intent-filter>
+        </receiver>
+    </application>
+
+</manifest>

@@ -49,11 +49,28 @@ class AppContainer(context: Context) {
      * [debugConnector] is the seam the screenshot harness uses to drive the real
      * screens without a live Pronote account. It is inert in release builds: a
      * published APK is not debuggable, so it always talks to the establishment's
+     * The Pronote connector.
+     *
+     * [debugConnector] is the seam the screenshot harness uses to drive the real
+     * screens without a live Pronote account. It is inert in release builds: a
+     * published APK is not debuggable, so it always talks to the establishment's
      * real server.
+     *
+     * Drapeau posé par le receiver de démo (source set `debug` uniquement) :
+     * `adb shell am broadcast -a com.pronote.clay.DEMO`. Un fichier plutôt
+     * qu'un champ statique, parce que le conteneur est construit avant que le
+     * broadcast n'arrive. Sans ce fichier — et donc dans tout APK publié, non
+     * debuggable — rien ne change.
      */
+    private val demoModeRequested: Boolean
+        get() = isDebuggable && java.io.File(appContext.filesDir, DEMO_MODE_FILE).exists()
+
     val dataSource: PronoteDataSource =
-        if (isDebuggable && debugConnector != null) debugConnector!!
-        else PronoteDirectDataSource()
+        if (isDebuggable && (debugConnector != null || demoModeRequested)) {
+            debugConnector ?: com.pronote.clay.data.remote.FakePronoteDataSource()
+        } else {
+            PronoteDirectDataSource()
+        }
 
     val networkMonitor = NetworkMonitor(appContext)
 
@@ -122,6 +139,9 @@ class AppContainer(context: Context) {
             .getString("active", null)
 
     companion object {
+        /** Fichier témoin du mode démonstration, créé par `src/debug`. */
+        const val DEMO_MODE_FILE = "demo-mode"
+
         /**
          * Swappable connector, set by tests only (never by the app). Debug-only:
          * a release build ignores it entirely.

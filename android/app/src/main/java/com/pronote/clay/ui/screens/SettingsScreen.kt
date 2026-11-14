@@ -215,10 +215,17 @@ private fun AppearanceCard(viewModel: HomeViewModel) {
     ClaySurface(modifier = Modifier.fillMaxWidth(), depth = 10.dp) {
         Column(Modifier.padding(18.dp)) {
             Section("Apparence")
-            ClaySettingRow(
-                title = "Thème",
-                description = "Sombre, clair ou système.",
-            ) {
+            // Les trois puces passent sous le libellé : à côté, elles
+            // écrasaient le texte sur un écran de 360 dp (constaté sur
+            // émulateur, le titre finissait coupé en plein mot).
+            Column(Modifier.fillMaxWidth().padding(vertical = 14.dp)) {
+                Text("Thème", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Sombre, clair ou système.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(10.dp))
                 Row {
                     ThemeChip("Système", preferences.darkTheme == null) {
                         viewModel.updatePreferences(preferences.copy(darkTheme = null))

@@ -404,8 +404,9 @@ private fun LessonList(
         item {
             Text(
                 "${DAY_NAMES[valueDayIndex(date)]} ${date.dayOfMonth} " +
-                    date.month.getDisplayName(java.time.format.TextStyle.FULL, Locale.FRENCH)
-                    .replaceFirstChar { it.uppercase() } +
+                    // En français le mois s'écrit en minuscule :
+                    // « Mardi 10 novembre », pas « 10 Novembre ».
+                    date.month.getDisplayName(java.time.format.TextStyle.FULL, Locale.FRENCH) +
                     if (isToday) "  •  aujourd'hui" else "",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,

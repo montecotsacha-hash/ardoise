@@ -46,7 +46,7 @@ un compte Play public personnel gratuit :
 | Bundle pour magasins        | `Ardoise.aab` — SHA-256 `f0aa8c466ef3ec744f59fe1ad4aff329d2e8dc1f8fd3f962ed818522d3afa082` |
 | Clé d'upload                | `android/app/upload-keystore.jks` (RSA 4096, valable 30 ans, créée le 14/11/2026), hors git |
 | Mots de passe de la clé     | `android/app/keystore.properties`, hors git                                                |
-| Captures d'écran            | `screenshots/` (page d'accueil : captures Play de l'app à produire)                        |
+| Captures d'écran            | `screenshots/app/` — captures réelles de l'app sur émulateur 720×1560 (Play, magasins, Github) |
 | Page de téléchargement      | <https://ardoise.freebuff.page>                                                            |
 
 Note : la page publique sert déjà cette version — `/version.json` annonce `versionCode` 12
