@@ -59,7 +59,16 @@ export default function App() {
         style={delay(0)}
       >
         <div className="flex items-center gap-3">
-          <span className="clay-dot" aria-hidden="true" />
+          {/* L'icône de l'application, pas une pastille de couleur : c'est le
+              même dessin que sur l'écran d'accueil du téléphone. */}
+          <img
+            src="/icon.svg"
+            alt=""
+            aria-hidden="true"
+            width={38}
+            height={38}
+            className="clay-icon"
+          />
           <span className="text-xl font-extrabold tracking-tight">Ardoise</span>
         </div>
         <a

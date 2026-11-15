@@ -8,6 +8,7 @@ const read = (path: string) =>
 
 const changelog = read("CHANGELOG.md");
 const gradle = read("android/app/build.gradle.kts");
+const readme = read("README.md");
 
 /** Lignes du journal au format `- \`1.5.0\` — « Boussole » — …`. */
 const entries = [...changelog.matchAll(/^- `([^`]+)` — « ([^»]+) »/gm)].map(
@@ -26,5 +27,13 @@ describe("nommage des versions", () => {
   it("garde le site, le journal et le build Android sur la même version", () => {
     expect(changelog).toContain(`- \`${VERSION}\` — « ${VERSION_CODENAME} »`);
     expect(gradle).toContain(`versionName = "${VERSION}"`);
+  });
+
+  // Le badge est écrit à la main dans le README : sans cette garde, il
+  // annoncerait encore la version précédente après une publication.
+  it("annonce la version publiée sur le badge du README", () => {
+    const badge = readme.match(/img\.shields\.io\/badge\/version-([^-\s")]+)-/);
+    expect(badge?.[1], "badge de version absent du README").toBeDefined();
+    expect(badge?.[1]).toBe(VERSION);
   });
 });
