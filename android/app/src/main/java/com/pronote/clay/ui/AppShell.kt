@@ -9,6 +9,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -182,9 +183,12 @@ private fun ClayMenu(
 ) {
     val preferences by viewModel.preferences.collectAsState()
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
-    val flipTheme = {
-        viewModel.updatePreferences(preferences.copy(darkTheme = preferences.darkTheme != true))
-    }
+    // Le thème appliqué, pas la préférence brute : sans choix explicite
+    // (`darkTheme == null`), l'app suit le mode sombre du système. Lire
+    // `darkTheme == true` affichait donc l'interrupteur éteint sur une app
+    // sombre, et il fallait le basculer deux fois pour obtenir du clair.
+    val isDark = preferences.darkTheme ?: isSystemInDarkTheme()
+    val flipTheme = { viewModel.updatePreferences(preferences.copy(darkTheme = !isDark)) }
     ModalDrawerSheet(
         modifier = Modifier.fillMaxHeight(),
         drawerContainerColor = MaterialTheme.colorScheme.background,
@@ -241,7 +245,7 @@ private fun ClayMenu(
                 label = "Mode sombre",
                 trailing = {
                     Switch(
-                        checked = preferences.darkTheme == true,
+                        checked = isDark,
                         onCheckedChange = { flipTheme() },
                     )
                 },
