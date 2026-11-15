@@ -39,7 +39,7 @@ class MainActivity : ComponentActivity() {
     /** true = the lock screen replaces the app (set from the user preferences). */
     private val locked = mutableStateOf(false)
 
-    /** Device-credential fallback for Android 7 and 8 (no platform BiometricPrompt). */
+    /** Device-credential fallback for Android 8 (API 26-27), without BiometricPrompt. */
     private val credentialLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == RESULT_OK) locked.value = false

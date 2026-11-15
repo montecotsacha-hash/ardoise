@@ -7,8 +7,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/montecotsacha-hash/ardoise/releases/latest"><img alt="Dernière version" src="https://img.shields.io/badge/version-1.6.3-8B63D9"></a>
-  <img alt="Android 7.0 et plus" src="https://img.shields.io/badge/Android-7.0%2B-3DDC84">
+  <a href="https://github.com/montecotsacha-hash/ardoise/releases/latest"><img alt="Dernière version" src="https://img.shields.io/badge/version-1.6.4-8B63D9"></a>
+  <img alt="Android 8.0 et plus" src="https://img.shields.io/badge/Android-8.0%2B-3DDC84">
   <a href="https://ardoise.freebuff.page"><img alt="Téléchargement" src="https://img.shields.io/badge/t%C3%A9l%C3%A9charger-Ardoise.apk-9B7BE0"></a>
 </p>
 
@@ -83,7 +83,7 @@ automatiques.
 
 | Dossier / fichier   | Contenu                                                              |
 | ------------------- | -------------------------------------------------------------------- |
-| `android/`          | Application Kotlin + Jetpack Compose (minSdk 24, targetSdk 35)        |
+| `android/`          | Application Kotlin + Jetpack Compose (minSdk 26, targetSdk 35)        |
 | `src/`              | Page de téléchargement (Vite, React 19, Tailwind v4)                  |
 | `deploy/`           | Worker Cloudflare : assets du site, APK depuis R2, `/version.json`    |
 | `assets/`           | Icône et bandeau animé utilisés par ce README                         |
@@ -120,7 +120,7 @@ Déploiement : le Worker de `deploy/` sert `deploy/assets/`, l'APK depuis R2 et
 le manifeste de version. Un APK se dépose sans redéployer le site :
 
 ```bash
-curl -X PUT "https://ardoise.freebuff.page/api/apk?name=Ardoise.apk&versionName=1.6.3&versionCode=16" \
+curl -X PUT "https://ardoise.freebuff.page/api/apk?name=Ardoise.apk&versionName=1.6.4&versionCode=17" \
   -H "Authorization: Bearer $UPLOAD_TOKEN" --data-binary @Ardoise.apk
 ```
 

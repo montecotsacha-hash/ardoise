@@ -114,7 +114,7 @@ jobs:
           tag_name: ${{ env.TAG }}
           name: Ardoise ${{ env.TAG }}
           body: |
-            APK signé (clé d'upload) à installer sur Android 7.0 et plus, et AAB
+            APK signé (clé d'upload) à installer sur Android 8.0 et plus, et AAB
             correspondant pour les magasins. Vérifie l'empreinte SHA-256 dans
             `SHA256SUMS.txt` avant d'installer.
 

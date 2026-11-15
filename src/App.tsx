@@ -86,7 +86,7 @@ export default function App() {
         style={delay(80)}
       >
         <span className="clay-chip">
-          Version {VERSION_LABEL} · Android 7.0 et plus · environ 12 Mo
+          Version {VERSION_LABEL} · Android 8.0 et plus · environ 12 Mo
         </span>
         <h1 className="mx-auto mt-6 max-w-2xl text-4xl font-black leading-tight tracking-tight sm:text-6xl">
           Tes notes, enfin <span className="text-[#9b7be0]">lisibles</span>.
@@ -186,7 +186,7 @@ export default function App() {
             </a>
           </div>
           <p className="mt-6 text-center text-sm text-[#6b5f87]">
-            L'application nécessite Android 7.0 (Nougat) ou une version plus
+            L'application nécessite Android 8.0 (Oreo) ou une version plus
             récente. Comme pour toute installation hors Play Store, Android te
             demandera d'autoriser l'installation depuis ton navigateur. Ardoise
             se connecte directement au serveur Pronote de ton établissement ;

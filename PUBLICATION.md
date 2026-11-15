@@ -40,16 +40,16 @@ un compte Play public personnel gratuit :
 | Élément                     | Valeur                                                                                     |
 | --------------------------- | ------------------------------------------------------------------------------------------ |
 | `applicationId`             | `com.pronote.clay`                                                                         |
-| Version                     | 1.6.3 « Gouvernail » (versionCode 16)                                                      |
-| Android minimum / cible     | API 24 (7.0) / API 35                                                                      |
-| APK signé (site + releases) | `Ardoise.apk` — SHA-256 `64439e6f413ca02af871bf6985794b2ee5e485c5d6dc881f63f9ac6c86cbf758` |
-| Bundle pour magasins        | `Ardoise.aab` — SHA-256 `07ed2bfe09a38acc94bdaff7aa9cac6e2cdf085a58747c54eab46a3245937e2b` |
+| Version                     | 1.6.4 « Halo » (versionCode 17)                                                            |
+| Android minimum / cible     | API 26 (8.0) / API 35                                                                      |
+| APK signé (site + releases) | `Ardoise.apk` — SHA-256 `6a0c12effdbcdad580a5c48b194b1a8396303263e1ca07e1d7aa227703822885` |
+| Bundle pour magasins        | `Ardoise.aab` — SHA-256 `895180f413f373a58ef70c7f93386eae122d3a0022466a99831bf05a41b4dda8` |
 | Clé d'upload                | `android/app/upload-keystore.jks` (RSA 4096, valable 30 ans, créée le 14/11/2026), hors git |
 | Mots de passe de la clé     | `android/app/keystore.properties`, hors git                                                |
 | Captures d'écran            | `screenshots/app/` — captures réelles de l'app sur émulateur 720×1560 (Play, magasins, Github) |
 | Page de téléchargement      | <https://ardoise.freebuff.page>                                                            |
 
-Note : la page publique sert déjà cette version — `/version.json` annonce `versionCode` 16
+Note : la page publique sert déjà cette version — `/version.json` annonce `versionCode` 17
 et l'empreinte du fichier téléchargé est identique à celle de la release.
 
 ## Nommage des versions

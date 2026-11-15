@@ -46,10 +46,12 @@ internal object BiometricGate {
                         setAllowedAuthenticators(
                             Authenticators.BIOMETRIC_STRONG or Authenticators.DEVICE_CREDENTIAL,
                         )
-                    } else {
+                    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                         @Suppress("DEPRECATION")
                         setDeviceCredentialAllowed(true)
                     }
+                    // Android 9 (API 28) n'a pas setDeviceCredentialAllowed :
+                    // l'appel levait NoSuchMethodError et le prompt était perdu.
                 }
                 .build()
 
