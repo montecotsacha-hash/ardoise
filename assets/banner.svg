@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 170" width="720" height="170" role="img" aria-label="Ardoise — tes notes Pronote, hors ligne, en un clin d'œil">
+  <!-- Bandeau animé du README. Le rendu de base reste lisible : si les
+       animations déclaratives ne sont pas jouées (certains lecteurs Markdown),
+       le titre et la phrase s'affichent entiers, simplement sans mouvement. -->
+  <defs>
+    <clipPath id="squircle">
+      <rect x="0" y="0" width="108" height="108" rx="26"/>
+    </clipPath>
+
+    <!-- Les deux reveals sont des caches qui s'ouvrent de gauche à droite :
+         c'est ce qui donne l'effet de frappe, sans dépendre d'une police
+         monospace. -->
+    <clipPath id="reveal-title">
+      <rect x="100" y="20" width="210" height="70">
+        <animate attributeName="width" from="0" to="210" dur="0.9s" begin="0s" fill="freeze"/>
+      </rect>
+    </clipPath>
+    <clipPath id="reveal-subtitle">
+      <rect x="100" y="96" width="470" height="34">
+        <animate attributeName="width" from="0" to="470" dur="1.8s" begin="0.9s" fill="freeze"/>
+      </rect>
+    </clipPath>
+  </defs>
+
+  <!-- Icône de l'app, réduite -->
+  <g transform="translate(8,49) scale(0.6667)" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.5s" begin="0s" fill="freeze"/>
+    <g clip-path="url(#squircle)">
+      <rect x="0" y="0" width="108" height="108" fill="#9B7BE0"/>
+      <circle cx="54" cy="54" r="28" fill="#FFFFFF" fill-opacity="0.18"/>
+      <path d="M38,60 h9 a4.5,4.5 0 0 1 4.5,4.5 v9 a4.5,4.5 0 0 1 -4.5,4.5 h-9 a4.5,4.5 0 0 1 -4.5,-4.5 v-9 a4.5,4.5 0 0 1 4.5,-4.5 z" fill="#FFFFFF"/>
+      <path d="M49.5,46 h9 a4.5,4.5 0 0 1 4.5,4.5 v23 a4.5,4.5 0 0 1 -4.5,4.5 h-9 a4.5,4.5 0 0 1 -4.5,-4.5 v-23 a4.5,4.5 0 0 1 4.5,-4.5 z" fill="#FFFFFF"/>
+      <path d="M61,32 h9 a4.5,4.5 0 0 1 4.5,4.5 v37 a4.5,4.5 0 0 1 -4.5,4.5 h-9 a4.5,4.5 0 0 1 -4.5,-4.5 v-37 a4.5,4.5 0 0 1 4.5,-4.5 z" fill="#FFFFFF"/>
+    </g>
+  </g>
+
+  <g clip-path="url(#reveal-title)">
+    <text x="100" y="88" font-family="ui-rounded, 'SF Pro Rounded', 'Segoe UI', system-ui, sans-serif"
+          font-size="58" font-weight="900" fill="#8B63D9" letter-spacing="-1" textLength="205"
+          lengthAdjust="spacingAndGlyphs">Ardoise</text>
+  </g>
+
+  <g clip-path="url(#reveal-subtitle)">
+    <text x="100" y="122" font-family="ui-rounded, 'SF Pro Rounded', 'Segoe UI', system-ui, sans-serif"
+          font-size="21" font-weight="600" fill="#8B63D9" fill-opacity="0.85" textLength="462"
+          lengthAdjust="spacingAndGlyphs">Tes notes Pronote, hors ligne, en un clin d'œil.</text>
+  </g>
+
+  <!-- Curseur : il avance au rythme de la frappe, puis clignote à la fin. -->
+  <rect x="100" y="98" width="3" height="26" rx="1.5" fill="#9B7BE0">
+    <animate attributeName="x" from="100" to="562" dur="1.8s" begin="0.9s" fill="freeze"/>
+    <animate attributeName="opacity" values="1;1;0" dur="0.2s" begin="2.7s" fill="freeze"/>
+  </rect>
+  <rect x="562" y="98" width="3" height="26" rx="1.5" fill="#9B7BE0" opacity="0">
+    <animate attributeName="opacity" values="0;1;1;0;1;1;0" dur="2.4s" begin="2.9s" repeatCount="indefinite"/>
+  </rect>
+</svg>
