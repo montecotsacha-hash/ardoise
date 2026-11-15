@@ -29,6 +29,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,6 +38,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pronote.clay.data.remote.UpdateStatus
@@ -159,6 +163,19 @@ private fun SyncCard(viewModel: HomeViewModel) {
             ClayDivider()
             val context = LocalContext.current
             var backgroundAllowed by remember { mutableStateOf(isBackgroundSyncAllowed(context)) }
+            // L'exemption s'accorde dans un écran système : au retour, on relit
+            // l'état réel. Sans ça la pastille restait sur « Autoriser » alors
+            // qu'Android venait d'accorder l'exemption.
+            val lifecycleOwner = LocalLifecycleOwner.current
+            DisposableEffect(lifecycleOwner, context) {
+                val observer = LifecycleEventObserver { _, event ->
+                    if (event == Lifecycle.Event.ON_RESUME) {
+                        backgroundAllowed = isBackgroundSyncAllowed(context)
+                    }
+                }
+                lifecycleOwner.lifecycle.addObserver(observer)
+                onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+            }
             ClaySettingRow(
                 title = "Alertes même application fermée",
                 description = if (backgroundAllowed) {
@@ -177,10 +194,7 @@ private fun SyncCard(viewModel: HomeViewModel) {
                     onClick = if (backgroundAllowed) {
                         null
                     } else {
-                        {
-                            requestBackgroundSync(context)
-                            backgroundAllowed = isBackgroundSyncAllowed(context)
-                        }
+                        { requestBackgroundSync(context) }
                     },
                 )
             }

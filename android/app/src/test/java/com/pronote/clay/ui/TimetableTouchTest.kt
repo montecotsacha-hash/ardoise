@@ -136,7 +136,7 @@ class TimetableTouchTest {
     }
 
     @Test
-    fun `les flèches de semaine changent de semaine et repartent du lundi`() {
+    fun `les flèches de semaine changent de semaine en gardant le jour choisi`() {
         openTimetable()
 
         composeRule.onNodeWithText("Sam.").performClick()
@@ -151,8 +151,8 @@ class TimetableTouchTest {
         val after = composeRule.onNode(hasText("Semaine du", substring = true))
             .fetchSemanticsNode().config[SemanticsProperties.Text].first().text
         assertNotEquals(before, after)
-        // Semaine suivante : on atterrit sur le lundi, jour sélectionné.
-        composeRule.onNodeWithText("Lun.").assertIsSelected()
+        // Changer de semaine garde le jour affiché : on reste sur samedi.
+        composeRule.onNodeWithText("Sam.").assertIsSelected()
     }
 
     @Test

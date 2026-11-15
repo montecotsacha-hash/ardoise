@@ -81,7 +81,7 @@ class PronoteDirectDataSource : PronoteDataSource {
                 PronoteAuthResult(
                     token = login.refreshToken,
                     expiresAt = Long.MAX_VALUE,
-                    schoolName = session.userResource!!.establishmentName,
+                    schoolName = establishmentName(session, schoolUrl),
                     payload = payload,
                     deviceUuid = deviceUuid,
                 ),
@@ -209,6 +209,16 @@ class PronoteDirectDataSource : PronoteDataSource {
     }
 
     private fun sessionKey(schoolUrl: String, username: String) = "$schoolUrl|$username"
+
+    /**
+     * Nom de l'établissement, sans `!!` : un serveur qui répond sans ressource
+     * utilisateur transformait une connexion réussie en « serveur injoignable ».
+     * À défaut, on retombe sur l'hôte de l'adresse saisie.
+     */
+    private fun establishmentName(session: PronoteSession, schoolUrl: String): String =
+        session.userResource?.establishmentName?.takeIf { it.isNotBlank() }
+            ?: runCatching { java.net.URI(schoolUrl).host }.getOrNull()
+            ?: schoolUrl
 
     private fun mapError(error: Throwable): PronoteError {
         Logger.error("Erreur du connecteur Pronote", error)

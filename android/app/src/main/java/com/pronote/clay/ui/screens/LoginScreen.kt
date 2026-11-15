@@ -41,6 +41,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import com.pronote.clay.core.LoginUrl
 import com.pronote.clay.ui.components.ClayButton
 import com.pronote.clay.ui.components.ClayErrorBox
 import com.pronote.clay.ui.components.ClayPill
@@ -94,14 +95,12 @@ fun LoginScreen(viewModel: HomeViewModel) {
         ClayButton(
             text = "Se connecter",
             onClick = {
-                val url = draft.schoolUrl.trim()
-                if (url.startsWith("https://", ignoreCase = true) &&
-                    draft.username.isNotBlank() && draft.password.isNotBlank()
-                ) {
+                val url = LoginUrl.normalize(draft.schoolUrl)
+                if (url != null && draft.username.isNotBlank() && draft.password.isNotBlank()) {
                     viewModel.login(url, draft.username.trim(), draft.password) {}
                 }
             },
-            enabled = draft.schoolUrl.trim().startsWith("https://", ignoreCase = true) &&
+            enabled = LoginUrl.isValid(draft.schoolUrl) &&
                 draft.username.isNotBlank() && draft.password.isNotBlank(),
         )
 
@@ -132,6 +131,13 @@ private fun LoginFields(
         label = "Adresse Pronote de l'établissement",
         leading = { Icon(Icons.Rounded.School, contentDescription = null, Modifier.size(18.dp)) },
         keyboardType = KeyboardType.Uri,
+        // Le bouton reste grisé tant que l'adresse n'est pas exploitable :
+        // sans cette ligne, l'utilisateur ne sait pas ce qui manque.
+        supporting = if (schoolUrl.isNotBlank() && !LoginUrl.isValid(schoolUrl)) {
+            "Adresse incomplète — par exemple https://demo.index-education.net/pronote/"
+        } else {
+            null
+        },
     )
     Spacer(Modifier.height(12.dp))
     ClayField(
@@ -219,6 +225,7 @@ private fun ClayField(
     trailing: (@Composable () -> Unit)? = null,
     keyboardType: KeyboardType = KeyboardType.Text,
     visualTransformation: VisualTransformation = VisualTransformation.None,
+    supporting: String? = null,
 ) {
     val colors = TextFieldDefaults.colors(
         focusedContainerColor = Color.Transparent,
@@ -235,6 +242,8 @@ private fun ClayField(
         label = { Text(label) },
         leadingIcon = leading,
         trailingIcon = trailing,
+        supportingText = supporting?.let { { Text(it) } },
+        isError = supporting != null,
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
         visualTransformation = visualTransformation,

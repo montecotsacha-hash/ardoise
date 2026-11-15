@@ -93,7 +93,7 @@ class TimetableViewModelTest {
     }
 
     @Test
-    fun `shifting weeks requests the new Monday and lands on Monday or Sunday`() = runTest(dispatcher) {
+    fun `shifting weeks requests the new Monday and keeps the selected day`() = runTest(dispatcher) {
         val requested = mutableListOf<String>()
         val vm = TimetableViewModel(
             loadTimetable = { _, weekStartIso ->
@@ -104,16 +104,51 @@ class TimetableViewModelTest {
         )
         dispatcher.scheduler.advanceUntilIdle()
 
+        // Mercredi, puis une semaine en arrière : on doit rester sur mercredi
+        // et non sauter au dimanche (ou au lundi en avançant).
+        vm.selectDay(2)
         requested.clear()
-        vm.shiftWeek(1)
+        vm.shiftWeek(-1)
         dispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(1, requested.size)
         assertEquals(
-            TimetableViewModel.mondayOf(LocalDate.now()).plusWeeks(1).toString(),
+            TimetableViewModel.mondayOf(LocalDate.now()).minusWeeks(1).toString(),
             requested[0],
         )
-        assertEquals(0, vm.selectedDayIndex.value)
+        assertEquals(2, vm.selectedDayIndex.value)
+
+        vm.shiftWeek(1)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(2, vm.selectedDayIndex.value)
+    }
+
+    @Test
+    fun `shifting weeks never selects a day outside the week`() = runTest(dispatcher) {
+        val vm = TimetableViewModel(
+            loadTimetable = { _, _ -> PronoteResult.Success(emptyList()) },
+            activeAccountId = { "acct" },
+        )
+        dispatcher.scheduler.advanceUntilIdle()
+
+        vm.selectDay(6)
+        vm.shiftWeek(1)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(6, vm.selectedDayIndex.value)
+    }
+
+    @Test
+    fun `an error without a hint has no trailing space`() = runTest(dispatcher) {
+        val vm = TimetableViewModel(
+            loadTimetable = { _, _ -> PronoteResult.Failure(PronoteError.NetworkUnavailable) },
+            activeAccountId = { "acct" },
+        )
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val message = (vm.state.value as TimetableUiState.Error).message
+        assertTrue(message.isNotBlank())
+        assertEquals(message.trim(), message)
     }
 
     @Test

@@ -79,7 +79,10 @@ class TimetableViewModel(
 
     fun shiftWeek(delta: Int) {
         val newStart = weekStart.plusWeeks(delta.toLong())
-        _selectedDayIndex.value = if (delta > 0) 0 else 6
+        // Changer de semaine garde le jour affiché. Forcer 0 en arrière et 6 en
+        // avant renvoyait au dimanche (ou au lundi) selon le sens du geste,
+        // alors que l'utilisateur suit un jour précis de sa semaine.
+        _selectedDayIndex.value = _selectedDayIndex.value.coerceIn(0, 6)
         loadWeek(newStart)
     }
 
@@ -107,7 +110,10 @@ class TimetableViewModel(
                 is PronoteResult.Failure -> {
                     Logger.warn("Timetable load failed")
                     _state.value = TimetableUiState.Error(
-                        result.error.userMessage + " " + (result.error.hint ?: ""),
+                        listOfNotNull(
+                            result.error.userMessage.takeIf { it.isNotBlank() },
+                            result.error.hint?.takeIf { it.isNotBlank() },
+                        ).joinToString(" "),
                     )
                 }
             }

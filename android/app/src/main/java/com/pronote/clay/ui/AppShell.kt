@@ -98,6 +98,19 @@ fun AppShell(viewModel: HomeViewModel) {
         scope.launch { drawerState.close() }
     }
 
+    // Retour système : il ferme le tiroir s'il est ouvert, sinon il ramène au
+    // tableau de bord. Sans ce garde-fou, le bouton retour quittait
+    // l'application depuis les paramètres ou l'emploi du temps.
+    androidx.activity.compose.BackHandler(
+        enabled = drawerState.isOpen || section != AppSection.Dashboard,
+    ) {
+        if (drawerState.isOpen) {
+            scope.launch { drawerState.close() }
+        } else {
+            section = AppSection.Dashboard
+        }
+    }
+
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
