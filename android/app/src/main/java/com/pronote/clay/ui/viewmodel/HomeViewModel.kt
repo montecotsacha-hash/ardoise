@@ -374,6 +374,10 @@ class HomeViewModel(
             container.activeAccountId()?.let { container.deleteLocalData.execute(it) }
             container.setActiveAccount(null)
             container.preferences.clear()
+            // Les widgets portent des données personnelles : ils doivent
+            // repasser à l'état vide, sinon la moyenne restait affichée sur
+            // l'écran d'accueil après la suppression.
+            container.refreshWidgets()
             _preferences.value = container.preferences.load()
             sessionValid = false
             _state.value = HomeUiState.Unauthenticated
@@ -384,6 +388,8 @@ class HomeViewModel(
     fun updatePreferences(preferences: Preferences) {
         container.preferences.save(preferences)
         _preferences.value = preferences
+        // Le thème et les couleurs font aussi partie des widgets.
+        container.refreshWidgets()
     }
 
     fun clearSession() {

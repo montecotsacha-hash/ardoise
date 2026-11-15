@@ -126,6 +126,16 @@ class AppContainer(context: Context) {
      */
     fun activeAccountId(): String? = activeAccount
 
+    /**
+     * Re-rend les widgets d'accueil après un changement de préférence.
+     *
+     * Le thème choisi change leur habit : sans cet appel, ils gardaient les
+     * couleurs de l'ancien réglage jusqu'à la synchronisation suivante.
+     */
+    fun refreshWidgets() {
+        com.pronote.clay.widgets.ArdoiseWidgetProvider.updateAllAsync(appContext)
+    }
+
     fun setActiveAccount(accountId: String?) {
         activeAccount = accountId
         appContext.getSharedPreferences("pronote_accounts", Context.MODE_PRIVATE)
