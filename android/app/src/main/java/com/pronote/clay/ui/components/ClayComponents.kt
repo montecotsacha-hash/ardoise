@@ -23,8 +23,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -40,6 +38,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.contentColorFor
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -150,9 +151,17 @@ fun ClaySurface(
                 } else Modifier,
             ),
     ) {
-        content()
+        // La couleur du texte suit la teinte de la carte : un bandeau secondaire
+        // clair reçoit un texte sombre, même quand le thème est sombre.
+        val contentColor = contentColorFor(container).takeOrElse(scheme.onSurface)
+        CompositionLocalProvider(LocalContentColor provides contentColor) {
+            content()
+        }
     }
 }
+
+private fun androidx.compose.ui.graphics.Color.takeOrElse(fallback: androidx.compose.ui.graphics.Color) =
+    if (this == androidx.compose.ui.graphics.Color.Unspecified) fallback else this
 
 /**
  * Small pastel clay pill — badges, source labels and, when [onClick] is given,
@@ -261,13 +270,7 @@ fun ClayButton(
                 spotColor = tint.copy(alpha = 0.45f),
             )
             .clip(CircleShape)
-            .background(
-                Brush.verticalGradient(
-                    0f to fill.copy(alpha = 0.92f).compositeOver(Color.White),
-                    0.12f to fill,
-                    1f to fill,
-                ),
-            )
+            .background(fill)
             .border(
                 1.dp,
                 Color.White.copy(alpha = if (enabled) 0.24f else 0f),

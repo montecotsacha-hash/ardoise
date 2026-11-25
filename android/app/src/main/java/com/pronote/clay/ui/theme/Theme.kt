@@ -94,13 +94,30 @@ fun AppTheme(
 ) {
     val dark = darkTheme ?: isSystemInDarkTheme()
 
-    val colors = when {
+    val base = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
             if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
         dark -> DarkColors
         else -> LightColors
+    }
+
+    // En sombre, l'écriture est blanche : les rôles de texte ne dépendent plus
+    // du fond tonal de la carte, donc un titre reste lisible partout.
+    val colors = if (dark) {
+        base.copy(
+            onBackground = ClayTextDark,
+            onSurface = ClayTextDark,
+            onSurfaceVariant = ClayTextMutedDark,
+            surface = ClaySurfaceDark,
+            surfaceContainerLow = Color(0xFF2A2438),
+            surfaceContainer = Color(0xFF2F2940),
+            surfaceContainerHigh = Color(0xFF373047),
+            surfaceContainerHighest = Color(0xFF3F3752),
+        )
+    } else {
+        base
     }
 
     MaterialTheme(

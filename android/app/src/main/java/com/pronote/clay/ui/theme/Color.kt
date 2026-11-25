@@ -29,6 +29,10 @@ val ClayAccentDark = Color(0xFF4E8C84)
 val ClayMutedDark = Color(0xFFB0A6C6)
 val ClayErrorDark = Color(0xFFE09A94)
 
+/** Texte en mode sombre : blanc, pour rester lisible sur tous les tons. */
+val ClayTextDark = Color(0xFFFFFFFF)
+val ClayTextMutedDark = Color(0xFFDCD5EC)
+
 /** Shadow tints that give clay its inflated depth. */
 val ClayShadowLight = Color(0x331F1440)
 val ClayHighlightLight = Color(0xE6FFFFFF)

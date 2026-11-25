@@ -61,7 +61,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathMeasure
@@ -444,13 +443,11 @@ private fun OfflineBanner(snapshot: com.pronote.clay.domain.SchoolSnapshot?) {
                 Icons.Rounded.WifiOff,
                 contentDescription = null,
                 modifier = Modifier.size(18.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.width(10.dp))
             Text(
                 "Hors ligne — données du " + formatTimestamp(snapshot?.fetchedAt),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -474,21 +471,13 @@ private fun AverageCard(
         )
     }
 
-    // Carte héro : un dégradé du primaire au tertiaire porte la moyenne.
-    // C'est le seul moment « expressif » de l'accueil — le reste est calme.
+    // Carte héro : un aplat de couleur primaire porte la moyenne. Pas de
+    // dégradé — la couleur du thème suffit, et le mouvement vient du chiffre.
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(32.dp))
-            .background(
-                Brush.linearGradient(
-                    0f to MaterialTheme.colorScheme.primary,
-                    0.55f to MaterialTheme.colorScheme.primary,
-                    1f to MaterialTheme.colorScheme.tertiary,
-                    start = androidx.compose.ui.geometry.Offset.Zero,
-                    end = androidx.compose.ui.geometry.Offset(900f, 520f),
-                ),
-            ),
+            .background(MaterialTheme.colorScheme.primary),
     ) {
         Row(
             Modifier.padding(ClayDimens.CardPadding),
@@ -676,30 +665,13 @@ private fun HistoryChart(history: List<com.pronote.clay.domain.HistoryPoint>, pe
                 fun x(i: Int) = if (points.size == 1) size.width / 2 else i * size.width / (points.size - 1)
                 fun y(v: Double) = size.height - ((v.toFloat() - min) / span) * size.height
 
+                // Pas d'aire remplie sous la courbe : une ligne nette suffit.
                 val line = Path()
-                val fill = Path()
                 points.forEachIndexed { i, point ->
                     val px = x(i)
                     val py = y(point.value)
-                    if (i == 0) {
-                        line.moveTo(px, py)
-                        fill.moveTo(px, size.height)
-                        fill.lineTo(px, py)
-                    } else {
-                        line.lineTo(px, py)
-                        fill.lineTo(px, py)
-                    }
+                    if (i == 0) line.moveTo(px, py) else line.lineTo(px, py)
                 }
-                fill.lineTo(x(points.size - 1), size.height)
-                fill.close()
-
-                drawPath(
-                    fill,
-                    brush = Brush.verticalGradient(
-                        listOf(accent.copy(alpha = 0.30f), Color.Transparent),
-                    ),
-                    alpha = progress,
-                )
 
                 val measure = PathMeasure().apply { setPath(line, false) }
                 val drawn = Path()

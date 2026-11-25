@@ -7,13 +7,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.pronote.clay.ui.theme.ClayHighlightDark
-import com.pronote.clay.ui.theme.ClayHighlightLight
 import com.pronote.clay.ui.theme.ClayShadowDark
 import com.pronote.clay.ui.theme.ClayShadowLight
 
@@ -33,11 +30,7 @@ fun Modifier.clay(
     dark: Boolean = MaterialTheme.colorScheme.background.luminanceIsDark(),
 ): Modifier {
     val shadow = if (dark) ClayShadowDark else ClayShadowLight
-    val highlight = if (dark) ClayHighlightDark else ClayHighlightLight
     val base = tint ?: MaterialTheme.colorScheme.surface
-
-    val top = lerpColor(base, highlight, 0.14f)
-    val bottom = base
 
     return this
         .shadow(
@@ -46,10 +39,7 @@ fun Modifier.clay(
             ambientColor = shadow,
             spotColor = shadow,
         )
-        .background(
-            brush = Brush.linearGradient(listOf(top, bottom)),
-            shape = shape,
-        )
+        .background(base, shape)
         .border(
             width = 1.dp,
             color = Color.White.copy(alpha = if (dark) 0.06f else 0.45f),
@@ -75,13 +65,6 @@ fun Modifier.clayInset(
             shape = shape,
         )
 }
-
-private fun lerpColor(a: Color, b: Color, t: Float): Color = Color(
-    red = a.red + (b.red - a.red) * t,
-    green = a.green + (b.green - a.green) * t,
-    blue = a.blue + (b.blue - a.blue) * t,
-    alpha = a.alpha + (b.alpha - a.alpha) * t,
-)
 
 private fun Color.luminanceIsDark(): Boolean =
     (0.299f * red + 0.587f * green + 0.114f * blue) < 0.5f

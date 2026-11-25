@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/montecotsacha-hash/ardoise/releases/latest"><img alt="Dernière version" src="https://img.shields.io/badge/version-1.6.8-8B63D9"></a>
+  <a href="https://github.com/montecotsacha-hash/ardoise/releases/latest"><img alt="Dernière version" src="https://img.shields.io/badge/version-1.6.9-8B63D9"></a>
   <img alt="Android 8.0 et plus" src="https://img.shields.io/badge/Android-8.0%2B-3DDC84">
   <a href="https://ardoise.freebuff.page"><img alt="Téléchargement" src="https://img.shields.io/badge/t%C3%A9l%C3%A9charger-Ardoise.apk-9B7BE0"></a>
 </p>
@@ -120,7 +120,7 @@ Déploiement : le Worker de `deploy/` sert `deploy/assets/`, l'APK depuis R2 et
 le manifeste de version. Un APK se dépose sans redéployer le site :
 
 ```bash
-curl -X PUT "https://ardoise.freebuff.page/api/apk?name=Ardoise.apk&versionName=1.6.8&versionCode=21" \
+curl -X PUT "https://ardoise.freebuff.page/api/apk?name=Ardoise.apk&versionName=1.6.9&versionCode=22" \
   -H "Authorization: Bearer $UPLOAD_TOKEN" --data-binary @Ardoise.apk
 ```
 

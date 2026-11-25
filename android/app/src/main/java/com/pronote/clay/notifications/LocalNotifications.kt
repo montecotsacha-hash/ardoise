@@ -51,7 +51,17 @@ object LocalNotifications {
     }
 
     fun notify(context: Context, title: String, body: String) {
+        // La vérification vit ICI et pas seulement dans le helper : c'est la
+        // seule forme que lint reconnaît, et elle reste vraie à l'exécution.
         if (!canNotify(context)) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS,
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
         ensureChannel(context)
 
         // Tapping the notification must open the app: MainActivity is the single
