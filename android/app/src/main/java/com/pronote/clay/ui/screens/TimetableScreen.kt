@@ -63,6 +63,7 @@ import com.pronote.clay.ui.components.ClaySecondaryButton
 import com.pronote.clay.ui.components.ClaySurface
 import com.pronote.clay.ui.components.clay
 import com.pronote.clay.ui.theme.ClayDimens
+import com.pronote.clay.ui.theme.frosted
 import com.pronote.clay.ui.theme.subjectAccent
 import com.pronote.clay.ui.viewmodel.TimetableUiState
 import com.pronote.clay.ui.viewmodel.TimetableViewModel
@@ -100,7 +101,6 @@ fun TimetableScreen(
         // Same treatment as the dashboard, the login form and the settings.
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
             .safeDrawingPadding(),
     ) {
         TimetableTopBar(onBack = onBack)
@@ -134,7 +134,8 @@ private fun TimetableTopBar(onBack: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 10.dp, vertical = 6.dp),
+            .padding(horizontal = 10.dp, vertical = 6.dp)
+            .frosted(RoundedCornerShape(28.dp), elevation = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(onClick = onBack) {
@@ -143,7 +144,7 @@ private fun TimetableTopBar(onBack: () -> Unit) {
         Text(
             "Emploi du temps",
             style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Black,
+            fontWeight = FontWeight.Bold,
         )
     }
 }

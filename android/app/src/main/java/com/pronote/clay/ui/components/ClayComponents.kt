@@ -4,7 +4,10 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import android.os.Build
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -18,6 +21,19 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.text.font.FontWeight
+import com.pronote.clay.ui.theme.LocalFrosted
+import com.pronote.clay.ui.theme.frosted
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -103,10 +119,32 @@ fun ClaySurface(
     // A gentle squish on press keeps the clay feeling tactile without being showy.
     val scale by animateFloatAsState(if (pressed) 0.98f else 1f, label = "clay-press")
 
+    // Hosted surface: an opaque SurfaceContainer tone with a hairline outline.
+    // Glass is reserved for chrome, so a card never turns translucent.
+    val scheme = MaterialTheme.colorScheme
+    val container = tint ?: scheme.surfaceContainer
     Box(
         modifier = modifier
             .scale(scale)
-            .clay(depth = depth, shape = shape, tint = tint)
+            .then(
+                if (depth > 6.dp) {
+                    Modifier.shadow(
+                        elevation = depth / 2,
+                        shape = shape,
+                        ambientColor = Color.Black.copy(alpha = 0.18f),
+                        spotColor = Color.Black.copy(alpha = 0.24f),
+                    )
+                } else Modifier,
+            )
+            .clip(shape)
+            .background(container)
+            .background(
+                Brush.verticalGradient(
+                    0f to Color.White.copy(alpha = 0.08f),
+                    0.6f to Color.Transparent,
+                ),
+            )
+            .border(1.dp, scheme.outlineVariant.copy(alpha = 0.55f), shape)
             .then(
                 if (onClick != null) {
                     Modifier.clickable(
@@ -156,8 +194,9 @@ fun ClayPill(
                 } else Modifier,
             ),
         shape = CircleShape,
-        color = tint.copy(alpha = 0.24f),
+        color = tint.copy(alpha = 0.16f),
         contentColor = tint,
+        border = BorderStroke(1.dp, tint.copy(alpha = 0.28f)),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
@@ -213,12 +252,33 @@ fun ClayButton(
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed && enabled) 0.97f else 1f, label = "button-press")
 
-    Surface(
+    // Filled button on the primary CTA: opaque by design, never glass.
+    val fill = if (enabled) tint else MaterialTheme.colorScheme.surfaceContainerHighest
+    val labelColor = if (enabled) contentColor else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = ClayDimens.MinTouchTarget)
+            .heightIn(min = 52.dp)
             .scale(scale)
-            .clay(depth = 10.dp, shape = RoundedCornerShape(22.dp), tint = tint)
+            .shadow(
+                elevation = if (enabled) 8.dp else 0.dp,
+                shape = CircleShape,
+                ambientColor = tint.copy(alpha = 0.35f),
+                spotColor = tint.copy(alpha = 0.45f),
+            )
+            .clip(CircleShape)
+            .background(
+                Brush.verticalGradient(
+                    0f to fill.copy(alpha = 0.92f).compositeOver(Color.White),
+                    0.12f to fill,
+                    1f to fill,
+                ),
+            )
+            .border(
+                1.dp,
+                Color.White.copy(alpha = if (enabled) 0.24f else 0f),
+                CircleShape,
+            )
             .clickable(
                 interactionSource = interaction,
                 indication = null,
@@ -226,7 +286,6 @@ fun ClayButton(
                 role = Role.Button,
                 onClick = onClick,
             ),
-        color = Color.Transparent,
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 22.dp, vertical = 15.dp),
@@ -248,7 +307,7 @@ fun ClayButton(
             Text(
                 text,
                 style = MaterialTheme.typography.labelLarge,
-                color = if (enabled) contentColor else contentColor.copy(alpha = 0.5f),
+                color = labelColor,
             )
         }
     }
@@ -282,10 +341,11 @@ fun ClayIconButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Icon buttons are chrome: the only interactive glass on a normal screen.
     Surface(
         modifier = modifier
             .size(ClayDimens.MinTouchTarget)
-            .clay(depth = 8.dp, shape = RoundedCornerShape(18.dp)),
+            .frosted(CircleShape, elevation = 3.dp),
         color = Color.Transparent,
         onClick = onClick,
     ) {
@@ -330,7 +390,7 @@ fun ClayDivider(modifier: Modifier = Modifier) {
         modifier
             .fillMaxWidth()
             .size(1.dp)
-            .clayInset(shape = CircleShape),
+            .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f), CircleShape),
     )
 }
 
@@ -413,21 +473,16 @@ fun ConfirmDeleteDialog(
     onConfirm: () -> Unit,
 ) {
     if (!visible) return
-    AlertDialog(
+    GlassDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Supprimer tes données ?") },
-        text = {
-            Text(
-                "Le cache local, la session et les identifiants chiffrés de " +
-                    "cet appareil seront effacés définitivement.",
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirm) { Text("Supprimer", color = MaterialTheme.colorScheme.error) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Annuler") }
-        },
+        title = "Supprimer tes données ?",
+        body = "Le cache local, la session et les identifiants chiffrés de " +
+            "cet appareil seront effacés définitivement.",
+        confirmLabel = "Supprimer",
+        confirmColor = MaterialTheme.colorScheme.error,
+        onConfirm = onConfirm,
+        dismissLabel = "Annuler",
+        onDismiss = onDismiss,
     )
 }
 
@@ -444,24 +499,95 @@ fun UpdateAvailableDialog(
     onDownload: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
+    GlassDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Mise à jour disponible") },
-        text = {
-            Text(
-                buildString {
-                    append("Ardoise ")
-                    append(info.versionName ?: "plus récente")
-                    append(" est disponible sur le site de distribution. ")
-                    append("Android l'installera en conservant tes données et ta session.")
-                },
-            )
+        title = "Mise à jour disponible",
+        body = buildString {
+            append("Ardoise ")
+            append(info.versionName ?: "plus récente")
+            append(" est disponible sur le site de distribution. ")
+            append("Android l'installera en conservant tes données et ta session.")
         },
-        confirmButton = {
-            TextButton(onClick = onDownload) { Text("Télécharger") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Plus tard") }
-        },
+        confirmLabel = "Télécharger",
+        onConfirm = onDownload,
+        dismissLabel = "Plus tard",
+        onDismiss = onDismiss,
     )
+}
+
+/**
+ * GlassDialog — the frosted dialog of the design system.
+ *
+ * On API 31+ the platform blurs the app behind the dialog window itself
+ * (`setBackgroundBlurRadius`), which is the only blur the app cannot fake. When
+ * the system disables blur, the same card stays readable: its tint is a
+ * SurfaceContainer, not a translucent primary.
+ */
+@Composable
+fun GlassDialog(
+    onDismissRequest: () -> Unit,
+    title: String,
+    body: String,
+    confirmLabel: String,
+    onConfirm: () -> Unit,
+    dismissLabel: String,
+    onDismiss: () -> Unit,
+    confirmColor: Color = MaterialTheme.colorScheme.primary,
+) {
+    Dialog(
+        onDismissRequest = onDismissRequest,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        val tokens = LocalFrosted.current
+        val view = LocalView.current
+        SideEffect {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && tokens.blurAvailable) {
+                (view.parent as? DialogWindowProvider)?.window?.setBackgroundBlurRadius(56)
+            }
+        }
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.32f))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismissRequest,
+                )
+                .padding(28.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .frosted(RoundedCornerShape(30.dp), tokens.tint, elevation = 16.dp)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {},
+                    )
+                    .padding(horizontal = 24.dp, vertical = 22.dp),
+            ) {
+                Text(title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                Box(Modifier.size(10.dp))
+                Text(
+                    body,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Box(Modifier.size(18.dp))
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text(dismissLabel, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Box(Modifier.size(6.dp))
+                    TextButton(onClick = onConfirm) { Text(confirmLabel, color = confirmColor) }
+                }
+            }
+        }
+    }
 }

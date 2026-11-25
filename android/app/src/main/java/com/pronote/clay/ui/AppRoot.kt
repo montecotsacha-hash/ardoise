@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import com.pronote.clay.notifications.LocalNotifications
 import com.pronote.clay.ui.components.clay
 import com.pronote.clay.ui.screens.LoginScreen
+import com.pronote.clay.ui.theme.AmbientBackdrop
 import com.pronote.clay.ui.theme.AppTheme
 import com.pronote.clay.ui.viewmodel.HomeEvent
 import com.pronote.clay.ui.viewmodel.HomeUiState
@@ -60,10 +61,10 @@ fun AppRoot(viewModel: HomeViewModel) {
     }
 
     AppTheme(darkTheme = preferences.darkTheme, dynamicColor = preferences.dynamicColor) {
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.background,
-        ) {
+        // The ambient field is the canvas of the whole design system: every
+        // screen draws its translucent chrome on top of it.
+        Box(modifier = Modifier.fillMaxSize()) {
+            AmbientBackdrop()
             when (val current = state) {
                 HomeUiState.Loading -> FullScreenLoader()
                 HomeUiState.Unauthenticated ->
@@ -86,9 +87,7 @@ fun AppRoot(viewModel: HomeViewModel) {
 @Composable
 private fun FullScreenLoader() {
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
+        modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {

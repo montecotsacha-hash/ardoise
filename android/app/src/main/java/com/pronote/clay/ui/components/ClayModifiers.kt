@@ -63,14 +63,15 @@ fun Modifier.clayInset(
     shape: Shape = RoundedCornerShape(20.dp),
     dark: Boolean = MaterialTheme.colorScheme.background.luminanceIsDark(),
 ): Modifier {
-    val base = MaterialTheme.colorScheme.background
-    val inset = if (dark) lerpColor(base, Color.Black, 0.18f) else lerpColor(base, Color.Black, 0.05f)
+    // Forms never take glass: an inset is an opaque SurfaceContainer with a
+    // hairline outline, so typing stays legible over the ambient backdrop.
+    val scheme = MaterialTheme.colorScheme
 
     return this
-        .background(inset, shape)
+        .background(scheme.surfaceContainerLowest, shape)
         .border(
             width = 1.dp,
-            color = if (dark) Color.Black.copy(alpha = 0.35f) else Color.Black.copy(alpha = 0.06f),
+            color = scheme.outlineVariant.copy(alpha = if (dark) 0.9f else 1f),
             shape = shape,
         )
 }

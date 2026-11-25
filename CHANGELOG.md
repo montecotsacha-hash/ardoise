@@ -11,6 +11,7 @@ la navigation et au papier — rien de plus.
 
 ## Versions
 
+- `1.6.7` — « Kabig » — 25 novembre 2026 : nouvelle interface Material 3 « givrée » — fond ambient dégradé, en-têtes translucides flottants, tiroir de navigation repensé, cartes tonales et dialogues dont Android floute lui-même l'arrière-plan (API 31+), avec repli lisible quand le flou est désactivé.
 - `1.6.6` — « Jetée » — 15 novembre 2026 : sélecteur de trimestre sur le tableau de bord (les périodes réelles de l'établissement : trimestres, bac blanc…). Pronote ouvrait sur un trimestre sans note : l'app bascule désormais d'elle-même sur la période précédente, et la courbe « Année » fusionne les trimestres consultés au lieu de disparaître.
 - `1.6.5` — « Ivoire » — 15 novembre 2026 : l'aperçu du widget « dernière note » ne se chargeait plus dans le sélecteur du lanceur, les widgets ne suivaient pas le passage en mode sombre, et ils gardaient la moyenne à l'écran après « Supprimer mes données ».
 - `1.6.4` — « Halo » — 15 novembre 2026 : Android 8.0 (API 26) devient le minimum pris en charge. L'app s'appuie sur `java.time`, absent d'Android 7.0/7.1 : elle ne pouvait pas s'y lancer. La demande de code de l'appareil passe désormais par l'API qui existe vraiment sur Android 9.
@@ -23,4 +24,4 @@ la navigation et au papier — rien de plus.
 
 ## Liste de réserve (noms pas encore utilisés)
 
-Kabig, Lisière, Mâture, Nasse, Quille, Ralingue.
+Lisière, Mâture, Nasse, Quille, Ralingue.

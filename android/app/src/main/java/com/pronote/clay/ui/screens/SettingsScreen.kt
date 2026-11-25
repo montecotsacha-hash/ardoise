@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -53,6 +54,7 @@ import com.pronote.clay.ui.components.ClaySecondaryButton
 import com.pronote.clay.ui.components.ClaySettingRow
 import com.pronote.clay.ui.components.ClaySurface
 import com.pronote.clay.ui.theme.ClayDimens
+import com.pronote.clay.ui.theme.frosted
 import com.pronote.clay.ui.viewmodel.HomeViewModel
 
 /**
@@ -423,7 +425,8 @@ private fun SettingsTopBar(onBack: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 10.dp, vertical = 6.dp),
+            .padding(horizontal = 10.dp, vertical = 6.dp)
+            .frosted(RoundedCornerShape(28.dp), elevation = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(onClick = onBack) {
@@ -433,7 +436,7 @@ private fun SettingsTopBar(onBack: () -> Unit) {
             Text(
                 "Paramètres",
                 style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Black,
+                fontWeight = FontWeight.Bold,
             )
         }
     }

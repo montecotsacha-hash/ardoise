@@ -84,6 +84,7 @@ import com.pronote.clay.ui.components.ClaySurface
 import com.pronote.clay.ui.components.clay
 import com.pronote.clay.ui.components.clayInset
 import com.pronote.clay.ui.theme.ClayDimens
+import com.pronote.clay.ui.theme.frosted
 import com.pronote.clay.ui.theme.subjectAccent
 import com.pronote.clay.ui.viewmodel.HomeUiState
 import com.pronote.clay.ui.viewmodel.HomeViewModel
@@ -367,10 +368,14 @@ private fun HomeTopBar(
     viewModel: HomeViewModel,
     onOpenMenu: () -> Unit,
 ) {
+    // Floating frosted header — Tier 1 glass in the material-3-frosted placement
+    // rule: chrome only, never the content the user reads.
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 14.dp),
+            .padding(top = 6.dp)
+            .frosted(RoundedCornerShape(30.dp), elevation = 5.dp)
+            .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val preferences by viewModel.preferences.collectAsState()
@@ -384,7 +389,9 @@ private fun HomeTopBar(
             )
             Text(
                 if (greeting != null) "Bonjour $greeting" else "Bonjour",
-                style = MaterialTheme.typography.headlineLarge,
+                style = MaterialTheme.typography.titleLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
             Text(
                 listOfNotNull(
@@ -393,6 +400,8 @@ private fun HomeTopBar(
                 ).joinToString(" • ").ifBlank { "Ardoise" },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
         RefreshButton(refreshing) { viewModel.refresh() }

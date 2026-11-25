@@ -20,8 +20,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Logout
@@ -29,6 +32,7 @@ import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -59,6 +63,7 @@ import com.pronote.clay.ui.components.ClaySurface
 import com.pronote.clay.ui.components.ConfirmDeleteDialog
 import com.pronote.clay.ui.components.UpdateAvailableDialog
 import com.pronote.clay.ui.components.clay
+import com.pronote.clay.ui.theme.LocalFrosted
 import com.pronote.clay.ui.screens.HomeScreen
 import com.pronote.clay.ui.screens.SettingsScreen
 import com.pronote.clay.ui.screens.TimetableScreen
@@ -202,10 +207,16 @@ private fun ClayMenu(
     // sombre, et il fallait le basculer deux fois pour obtenir du clair.
     val isDark = preferences.darkTheme ?: isSystemInDarkTheme()
     val flipTheme = { viewModel.updatePreferences(preferences.copy(darkTheme = !isDark)) }
+    // The drawer is chrome: a frosted panel over the dimmed app, per the
+    // glass placement rule. Its tint is a SurfaceContainer, so it stays
+    // readable when the platform cannot blur.
     ModalDrawerSheet(
         modifier = Modifier.fillMaxHeight(),
-        drawerContainerColor = MaterialTheme.colorScheme.background,
-        drawerContentColor = MaterialTheme.colorScheme.onBackground,
+        drawerShape = RoundedCornerShape(topEnd = 32.dp, bottomEnd = 32.dp),
+        // Nearly opaque on purpose: the drawer sits over the dimmed dashboard,
+        // and text over content it cannot blur would break contrast.
+        drawerContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        drawerContentColor = MaterialTheme.colorScheme.onSurface,
     ) {
         Column(
             Modifier
@@ -217,13 +228,18 @@ private fun ClayMenu(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     Modifier
-                        .size(38.dp)
-                        .clay(
-                            depth = 10.dp,
-                            shape = RoundedCornerShape(14.dp),
-                            tint = MaterialTheme.colorScheme.primary,
-                        ),
-                )
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Rounded.School,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                }
                 Spacer(Modifier.width(14.dp))
                 Column {
                     Text(
@@ -301,7 +317,7 @@ private fun ClayMenu(
     )
 }
 
-/** A menu entry: the same clay card as a section, with an optional trailing control. */
+/** A drawer row: no card, just a tactile row with an optional trailing control. */
 @Composable
 private fun MenuRow(
     icon: ImageVector,
@@ -311,32 +327,28 @@ private fun MenuRow(
     trailing: (@Composable () -> Unit)? = null,
     onClick: (() -> Unit)? = null,
 ) {
-    ClaySurface(
-        modifier = Modifier.fillMaxWidth(),
-        depth = 4.dp,
-        shape = RoundedCornerShape(20.dp),
-        onClick = onClick,
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(50))
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(horizontal = 18.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            Modifier.padding(horizontal = 16.dp, vertical = 15.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                icon,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp),
-                tint = iconTint,
-            )
-            Spacer(Modifier.width(14.dp))
-            Text(
-                label,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Medium,
-                color = labelColor,
-                modifier = Modifier.weight(1f),
-            )
-            trailing?.invoke()
-        }
+        Icon(
+            icon,
+            contentDescription = null,
+            modifier = Modifier.size(21.dp),
+            tint = iconTint,
+        )
+        Spacer(Modifier.width(16.dp))
+        Text(
+            label,
+            style = MaterialTheme.typography.titleMedium,
+            color = labelColor,
+            modifier = Modifier.weight(1f),
+        )
+        trailing?.invoke()
     }
 }
 
@@ -346,32 +358,31 @@ private fun MenuItem(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
-    ClaySurface(
-        modifier = Modifier.fillMaxWidth(),
-        depth = if (selected) 12.dp else 4.dp,
-        shape = RoundedCornerShape(20.dp),
-        tint = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.20f) else null,
-        onClick = onClick,
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(50))
+            .background(
+                if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 15.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            Modifier.padding(horizontal = 16.dp, vertical = 15.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                item.icon,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp),
-                tint = if (selected) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.width(14.dp))
-            Text(
-                item.label,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                color = if (selected) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.onSurface,
-            )
-        }
+        Icon(
+            item.icon,
+            contentDescription = null,
+            modifier = Modifier.size(21.dp),
+            tint = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
+            else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.width(16.dp))
+        Text(
+            item.label,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+            color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
+            else MaterialTheme.colorScheme.onSurface,
+        )
     }
 }
