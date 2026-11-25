@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Le seul dossier partagé avec l'installateur Android : les APK de mise à jour
+  téléchargés par l'application elle-même. Rien d'autre n'est exposé.
+-->
+<paths>
+    <external-files-path name="updates" path="Download/" />
+    <cache-path name="cache_updates" path="updates/" />
+</paths>

@@ -128,7 +128,7 @@ private fun LoginFields(
     ClayField(
         value = schoolUrl,
         onValueChange = onSchoolUrlChange,
-        label = "Adresse Pronote de l'établissement",
+        label = "Adresse Pronote",
         leading = { Icon(Icons.Rounded.School, contentDescription = null, Modifier.size(18.dp)) },
         keyboardType = KeyboardType.Uri,
         // Le bouton reste grisé tant que l'adresse n'est pas exploitable :

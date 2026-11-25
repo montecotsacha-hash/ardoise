@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
@@ -64,7 +65,7 @@ class GradeDetailSheetTest {
     /** Se connecte avec le connecteur de démonstration. */
     private fun signIn() {
         advance()
-        composeRule.onNodeWithText("Adresse Pronote de l'établissement")
+        composeRule.onNodeWithText("Adresse Pronote")
             .performTextInput("https://demo.index-education.net/pronote/")
         composeRule.onNodeWithText("Identifiant").performTextInput("eleve")
         composeRule.onNodeWithText("Mot de passe").performTextInput("demo123")
@@ -111,9 +112,19 @@ class GradeDetailSheetTest {
         composeRule.onNodeWithText("Fermer").performClick()
         advance()
 
-        // Le panneau a disparu, la liste est toujours là.
+        // Le panneau a disparu, la liste est toujours là (on la rejoint au
+        // doigt : la fermeture peut rendre la position de défilement au début).
         composeRule.onNodeWithText("Barème").assertDoesNotExist()
-        composeRule.onNodeWithText("Contrôle fonctions").assertIsDisplayed()
+        for (step in 0 until 12) {
+            if (composeRule.onAllNodesWithText("Contrôle fonctions")
+                    .fetchSemanticsNodes().isNotEmpty()
+            ) {
+                break
+            }
+            composeRule.onAllNodes(hasScrollAction()).onFirst().performTouchInput { swipeUp() }
+            advance()
+        }
+        composeRule.onNodeWithText("Contrôle fonctions").assertExists()
     }
 
     companion object {

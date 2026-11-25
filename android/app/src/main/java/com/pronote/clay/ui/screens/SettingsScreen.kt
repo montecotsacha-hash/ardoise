@@ -44,6 +44,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.pronote.clay.data.remote.UpdateStatus
 import com.pronote.clay.ui.components.ConfirmDeleteDialog
 import com.pronote.clay.ui.components.ClayButton
@@ -53,6 +54,7 @@ import com.pronote.clay.ui.components.ClayReveal
 import com.pronote.clay.ui.components.ClaySecondaryButton
 import com.pronote.clay.ui.components.ClaySettingRow
 import com.pronote.clay.ui.components.ClaySurface
+import com.pronote.clay.ui.components.UpdateAvailableDialog
 import com.pronote.clay.ui.theme.ClayDimens
 import com.pronote.clay.ui.theme.frosted
 import com.pronote.clay.ui.viewmodel.HomeViewModel
@@ -84,7 +86,7 @@ fun SettingsScreen(viewModel: HomeViewModel, onBack: () -> Unit) {
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = ClayDimens.ScreenPadding)
-                .padding(bottom = 40.dp),
+                .padding(bottom = 120.dp),
         ) {
             ClayReveal { SyncCard(viewModel) }
 
@@ -310,7 +312,9 @@ private fun SecurityCard(viewModel: HomeViewModel) {
 /** Version installée, état de la vérification et téléchargement de l'APK. */
 @Composable
 private fun UpdateCard(viewModel: HomeViewModel, updateStatus: UpdateStatus) {
-    val context = LocalContext.current
+    // Le téléchargement se fait dans l'app : le dialogue montre l'avancement
+    // puis ouvre l'installateur Android.
+    var showUpdate by remember { mutableStateOf(false) }
 
     ClaySurface(modifier = Modifier.fillMaxWidth(), depth = 10.dp) {
         Column(Modifier.padding(18.dp)) {
@@ -340,16 +344,14 @@ private fun UpdateCard(viewModel: HomeViewModel, updateStatus: UpdateStatus) {
                     Spacer(Modifier.height(10.dp))
                     ClayButton(
                         text = "Télécharger la mise à jour",
-                        onClick = {
-                            viewModel.dismissUpdate()
-                            context.startActivity(
-                                Intent(
-                                    Intent.ACTION_VIEW,
-                                    Uri.parse(status.info.apkUrl),
-                                ),
-                            )
-                        },
+                        onClick = { showUpdate = true },
                     )
+                    if (showUpdate) {
+                        UpdateAvailableDialog(
+                            info = status.info,
+                            onDismiss = { showUpdate = false },
+                        )
+                    }
                 }
                 UpdateStatus.UpToDate -> Text(
                     "Tu as la dernière version publiée.",
@@ -422,11 +424,11 @@ private fun PrivacyNote(viewModel: HomeViewModel) {
 
 @Composable
 private fun SettingsTopBar(onBack: () -> Unit) {
+    // En-tête minimal, sans cadre : un retour et le titre, rien de plus.
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 10.dp, vertical = 6.dp)
-            .frosted(RoundedCornerShape(28.dp), elevation = 4.dp),
+            .padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(onClick = onBack) {
@@ -434,9 +436,11 @@ private fun SettingsTopBar(onBack: () -> Unit) {
         }
         Box(Modifier.weight(1f)) {
             Text(
-                "Paramètres",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
+                "Réglages",
+                fontSize = 28.sp,
+                lineHeight = 32.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = (-0.8).sp,
             )
         }
     }

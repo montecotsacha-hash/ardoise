@@ -22,7 +22,7 @@ class MainActivitySmokeTest {
     fun `the app opens on the login form instead of a blank screen`() {
         composeRule.onNodeWithText("Ardoise").assertExists()
         composeRule.onNodeWithText("Connexion").assertExists()
-        composeRule.onNodeWithText("Adresse Pronote de l'établissement").assertExists()
+        composeRule.onNodeWithText("Adresse Pronote").assertExists()
         composeRule.onNodeWithText("Identifiant").assertExists()
         composeRule.onNodeWithText("Mot de passe").assertExists()
         composeRule.onNodeWithText("Se connecter").assertExists()

@@ -65,6 +65,15 @@ fun AppRoot(viewModel: HomeViewModel) {
         // screen draws its translucent chrome on top of it.
         Box(modifier = Modifier.fillMaxSize()) {
             AmbientBackdrop()
+            // Le fond ambient remplace le Surface opaque, mais c'est lui qui
+            // fournissait la couleur de texte par défaut : sans ce Surface
+            // transparent, les titres non coloriés passaient en noir en thème
+            // sombre.
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = androidx.compose.ui.graphics.Color.Transparent,
+                contentColor = MaterialTheme.colorScheme.onBackground,
+            ) {
             when (val current = state) {
                 HomeUiState.Loading -> FullScreenLoader()
                 HomeUiState.Unauthenticated ->
@@ -79,6 +88,7 @@ fun AppRoot(viewModel: HomeViewModel) {
                 is HomeUiState.Success -> AppShell(viewModel)
                 is HomeUiState.Offline -> AppShell(viewModel)
                 is HomeUiState.SyncIssue -> AppShell(viewModel)
+            }
             }
         }
     }

@@ -4,6 +4,13 @@ import android.app.ActivityManager
 import android.content.Context
 import android.os.Build
 import android.view.WindowManager
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -13,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -25,6 +33,9 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
 /**
  * Frosted layer — the Android 17 chrome of the app.
@@ -133,17 +144,35 @@ fun Modifier.frosted(
 fun AmbientBackdrop(modifier: Modifier = Modifier) {
     val scheme = MaterialTheme.colorScheme
     val dark = scheme.surface.luminanceIsDark()
-    val strength = if (dark) 0.55f else 0.46f
+    val strength = if (dark) 0.58f else 0.5f
+
+    // Les halos dérivent lentement : le fond vit sans jamais distraire, et le
+    // verre du chrome a quelque chose de mouvant à laisser transparaître.
+    val drift = rememberInfiniteTransition(label = "ambient")
+    val phase by drift.animateFloat(
+        initialValue = 0f,
+        targetValue = (2f * PI).toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(28_000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "ambient-phase",
+    )
+    val breathe by drift.animateFloat(
+        initialValue = 0.92f,
+        targetValue = 1.08f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(9_000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "ambient-breathe",
+    )
 
     Box(modifier.fillMaxSize().background(scheme.background)) {
         androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
-            // Three overlapping blooms: the depth story starts here, under the
-            // frosted chrome. Values are tuned so body text never sits on the
-            // strongest part of a bloom at low contrast.
-            bloom(scheme.primary, 0.92f, 0.02f, 0.78f, strength)
-            bloom(scheme.tertiary, 0.02f, 0.92f, 0.85f, strength * 0.85f)
-            bloom(scheme.secondary, -0.08f, 0.34f, 0.62f, strength * 0.55f)
-            bloom(scheme.primary, 0.55f, 0.62f, 0.55f, strength * 0.22f)
+            bloom(scheme.primary, 0.84f + 0.08f * cos(phase), 0.08f + 0.06f * sin(phase), 0.72f * breathe, strength)
+            bloom(scheme.tertiary, 0.06f + 0.10f * sin(phase * 0.8f), 0.88f + 0.04f * cos(phase), 0.80f * breathe, strength * 0.9f)
+            bloom(scheme.secondary, 0.4f + 0.2f * cos(phase * 1.3f), 0.5f + 0.22f * sin(phase * 0.7f), 0.55f, strength * 0.45f)
         }
     }
 }

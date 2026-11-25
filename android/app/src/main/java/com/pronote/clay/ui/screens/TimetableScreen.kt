@@ -101,7 +101,8 @@ fun TimetableScreen(
         // Same treatment as the dashboard, the login form and the settings.
         modifier = Modifier
             .fillMaxSize()
-            .safeDrawingPadding(),
+            .safeDrawingPadding()
+            .padding(bottom = 88.dp),
     ) {
         TimetableTopBar(onBack = onBack)
         ClayReveal(index = 1) {
@@ -134,8 +135,7 @@ private fun TimetableTopBar(onBack: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 10.dp, vertical = 6.dp)
-            .frosted(RoundedCornerShape(28.dp), elevation = 4.dp),
+            .padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(onClick = onBack) {
@@ -143,8 +143,10 @@ private fun TimetableTopBar(onBack: () -> Unit) {
         }
         Text(
             "Emploi du temps",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
+            fontSize = 28.sp,
+            lineHeight = 32.sp,
+            fontWeight = FontWeight.Black,
+            letterSpacing = (-0.8).sp,
         )
     }
 }

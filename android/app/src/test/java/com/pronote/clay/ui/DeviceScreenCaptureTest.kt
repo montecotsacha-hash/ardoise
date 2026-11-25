@@ -119,7 +119,7 @@ class DeviceScreenCaptureTest {
         advance()
         capture("01-connexion.png")
 
-        composeRule.onNodeWithText("Adresse Pronote de l'établissement")
+        composeRule.onNodeWithText("Adresse Pronote")
             .performTextInput("https://demo.index-education.net/pronote/")
         composeRule.onNodeWithText("Identifiant").performTextInput("eleve")
         composeRule.onNodeWithText("Mot de passe").performTextInput("demo123")
@@ -138,31 +138,24 @@ class DeviceScreenCaptureTest {
         composeRule.onAllNodesWithContentDescription("Paramètres").assertCountEquals(0)
         capture("02-tableau-de-bord.png")
 
-        composeRule.onNodeWithContentDescription("Menu").performClick()
+        // La navigation est une barre flottante, plus un tiroir.
+        composeRule.onNodeWithContentDescription("Réglages").performClick()
         advance()
-        // Tout vit dans le menu : sections, thème, déconnexion, suppression.
-        composeRule.onNodeWithText("Paramètres").assertExists()
-        composeRule.onNodeWithText("Mode sombre").assertExists()
+        composeRule.onNodeWithText("COMPTE").assertExists()
         composeRule.onNodeWithText("Se déconnecter").assertExists()
-        composeRule.onNodeWithText("Supprimer mes données").assertExists()
-        capture("03-menu.png")
+        capture("03-reglages.png")
 
-        composeRule.onNodeWithText("Emploi du temps").performClick()
+        composeRule.onNodeWithContentDescription("Emploi du temps").performClick()
         advance()
         // Et réciproquement : le tableau de bord a bien été démonté.
         composeRule.onAllNodesWithText("Évolution").assertCountEquals(0)
         composeRule.onAllNodesWithText("Matières").assertCountEquals(0)
         capture("04-emploi-du-temps.png")
 
-        // Les paramètres ne s'atteignent que par le menu.
-        composeRule.onNodeWithContentDescription("Retour").performClick()
+        composeRule.onNodeWithContentDescription("Accueil").performClick()
         advance()
-        composeRule.onNodeWithContentDescription("Menu").performClick()
-        advance()
-        composeRule.onNodeWithText("Paramètres").performClick()
-        advance()
-        composeRule.onNodeWithText("COMPTE").assertExists()
-        capture("05-parametres.png")
+        composeRule.onNodeWithText("Évolution").assertExists()
+        capture("05-tableau-de-bord.png")
     }
 
     companion object {

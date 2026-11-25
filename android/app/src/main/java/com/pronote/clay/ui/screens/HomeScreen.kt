@@ -58,6 +58,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
@@ -105,7 +106,6 @@ import java.util.Locale
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
-    onOpenMenu: () -> Unit = {},
 ) {
     val state by viewModel.state.collectAsState()
     val online by viewModel.online.collectAsState()
@@ -141,17 +141,12 @@ fun HomeScreen(
         contentPadding = PaddingValues(
             start = ClayDimens.ScreenPadding,
             end = ClayDimens.ScreenPadding,
-            bottom = 48.dp,
+            bottom = 128.dp,
         ),
     ) {
         item {
             ClayReveal {
-                HomeTopBar(
-                    snapshot,
-                    refreshing,
-                    viewModel,
-                    onOpenMenu = onOpenMenu,
-                )
+                HomeTopBar(snapshot, refreshing, viewModel)
             }
         }
         item { Spacer(Modifier.height(18.dp)) }
@@ -366,21 +361,16 @@ private fun HomeTopBar(
     snapshot: com.pronote.clay.domain.SchoolSnapshot?,
     refreshing: Boolean,
     viewModel: HomeViewModel,
-    onOpenMenu: () -> Unit,
 ) {
-    // Floating frosted header — Tier 1 glass in the material-3-frosted placement
-    // rule: chrome only, never the content the user reads.
+    // En-tête minimal : le nom, l'établissement, l'actualisation. Pas de
+    // hamburger, pas de cadre — la navigation vit en bas de l'écran.
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 6.dp)
-            .frosted(RoundedCornerShape(30.dp), elevation = 5.dp)
-            .padding(horizontal = 12.dp, vertical = 12.dp),
+            .padding(top = 10.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val preferences by viewModel.preferences.collectAsState()
-        ClayIconButton(Icons.Rounded.Menu, "Menu", onClick = onOpenMenu)
-        Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             val greeting = greetingName(
                 configured = preferences.displayName,
@@ -389,7 +379,10 @@ private fun HomeTopBar(
             )
             Text(
                 if (greeting != null) "Bonjour $greeting" else "Bonjour",
-                style = MaterialTheme.typography.titleLarge,
+                fontSize = 32.sp,
+                lineHeight = 36.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = (-1).sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -418,10 +411,9 @@ private fun RefreshButton(refreshing: Boolean, onClick: () -> Unit) {
         label = "sync-angle",
     )
     androidx.compose.material3.Surface(
-        modifier = Modifier
-            .size(ClayDimens.MinTouchTarget)
-            .clay(depth = 8.dp, shape = RoundedCornerShape(18.dp)),
-        color = Color.Transparent,
+        modifier = Modifier.size(ClayDimens.MinTouchTarget),
+        shape = androidx.compose.foundation.shape.CircleShape,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
         onClick = onClick,
     ) {
         Box(Modifier.size(ClayDimens.MinTouchTarget), contentAlignment = Alignment.Center) {
@@ -482,7 +474,22 @@ private fun AverageCard(
         )
     }
 
-    ClaySurface(modifier = Modifier.fillMaxWidth(), depth = 14.dp) {
+    // Carte héro : un dégradé du primaire au tertiaire porte la moyenne.
+    // C'est le seul moment « expressif » de l'accueil — le reste est calme.
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(32.dp))
+            .background(
+                Brush.linearGradient(
+                    0f to MaterialTheme.colorScheme.primary,
+                    0.55f to MaterialTheme.colorScheme.primary,
+                    1f to MaterialTheme.colorScheme.tertiary,
+                    start = androidx.compose.ui.geometry.Offset.Zero,
+                    end = androidx.compose.ui.geometry.Offset(900f, 520f),
+                ),
+            ),
+    ) {
         Row(
             Modifier.padding(ClayDimens.CardPadding),
             verticalAlignment = Alignment.CenterVertically,
@@ -494,7 +501,7 @@ private fun AverageCard(
                     Text(
                         periodLabel.uppercase(),
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
                         letterSpacing = 1.sp,
                     )
                     Spacer(Modifier.height(6.dp))
@@ -502,15 +509,16 @@ private fun AverageCard(
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(
                         AverageCalculator.formatAverage(animated.value.toDouble()),
-                        fontSize = 52.sp,
-                        lineHeight = 54.sp,
+                        fontSize = 56.sp,
+                        lineHeight = 58.sp,
                         fontWeight = FontWeight.Black,
                         letterSpacing = (-2).sp,
+                        color = MaterialTheme.colorScheme.onPrimary,
                     )
                     Text(
                         " /20",
                         style = MaterialTheme.typography.headlineMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
                 }
@@ -521,7 +529,7 @@ private fun AverageCard(
                     } else {
                         "Moyenne calculée"
                     },
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = MaterialTheme.colorScheme.onPrimary,
                 )
             }
             val deltaDisplay = average.deltaDisplay
@@ -543,12 +551,12 @@ private fun AverageCard(
                         Text(
                             deltaDisplay,
                             style = MaterialTheme.typography.headlineMedium,
-                            color = if (up) Color(0xFF4E8C84) else MaterialTheme.colorScheme.error,
+                            color = MaterialTheme.colorScheme.onPrimary,
                         )
                         Text(
                             "depuis la dernière note",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
                         )
                     }
                 }
@@ -585,6 +593,7 @@ private fun PeriodSelector(
                 tint = if (selected) MaterialTheme.colorScheme.primary
                 else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.scale(chipScale),
+                filled = selected,
                 onClick = { onSelect(period.id) },
             )
         }
@@ -622,6 +631,7 @@ private fun HistoryPeriodSelector(
                 tint = if (selected) MaterialTheme.colorScheme.primary
                 else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.scale(chipScale),
+                filled = selected,
                 onClick = { onSelect(days) },
             )
         }
@@ -870,7 +880,10 @@ private fun GradeDetailCard(
         modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(horizontal = 10.dp, vertical = 10.dp),
+            // La fiche flotte AU-DESSUS de la barre de navigation : ses boutons
+            // ne doivent jamais tomber sous la pilule flottante.
+            .padding(horizontal = 10.dp, vertical = 10.dp)
+            .padding(bottom = 78.dp),
         depth = 16.dp,
         shape = RoundedCornerShape(30.dp),
     ) {

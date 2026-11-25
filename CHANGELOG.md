@@ -11,6 +11,7 @@ la navigation et au papier — rien de plus.
 
 ## Versions
 
+- `1.6.8` — « Lisière » — 25 novembre 2026 : interface refaite façon Android 17 / Pixel Music — titre plein cadre, carte de moyenne en dégradé, puces pleines, barre de navigation flottante animée, halos de fond qui dérivent, sections sans décor. Le bouton « Télécharger la mise à jour » télécharge désormais l'APK dans l'app puis ouvre l'installateur Android, et le site garde un contenu statique lisible si son JavaScript ne démarre pas.
 - `1.6.7` — « Kabig » — 25 novembre 2026 : nouvelle interface Material 3 « givrée » — fond ambient dégradé, en-têtes translucides flottants, tiroir de navigation repensé, cartes tonales et dialogues dont Android floute lui-même l'arrière-plan (API 31+), avec repli lisible quand le flou est désactivé.
 - `1.6.6` — « Jetée » — 15 novembre 2026 : sélecteur de trimestre sur le tableau de bord (les périodes réelles de l'établissement : trimestres, bac blanc…). Pronote ouvrait sur un trimestre sans note : l'app bascule désormais d'elle-même sur la période précédente, et la courbe « Année » fusionne les trimestres consultés au lieu de disparaître.
 - `1.6.5` — « Ivoire » — 15 novembre 2026 : l'aperçu du widget « dernière note » ne se chargeait plus dans le sélecteur du lanceur, les widgets ne suivaient pas le passage en mode sombre, et ils gardaient la moyenne à l'écran après « Supprimer mes données ».
@@ -24,4 +25,4 @@ la navigation et au papier — rien de plus.
 
 ## Liste de réserve (noms pas encore utilisés)
 
-Lisière, Mâture, Nasse, Quille, Ralingue.
+Mâture, Nasse, Quille, Ralingue.

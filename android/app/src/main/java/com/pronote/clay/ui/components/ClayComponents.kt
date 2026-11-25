@@ -54,6 +54,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.pronote.clay.data.remote.UpdateInfo
 import com.pronote.clay.ui.theme.ClayDimens
 
@@ -122,29 +123,22 @@ fun ClaySurface(
     // Hosted surface: an opaque SurfaceContainer tone with a hairline outline.
     // Glass is reserved for chrome, so a card never turns translucent.
     val scheme = MaterialTheme.colorScheme
-    val container = tint ?: scheme.surfaceContainer
+    val container = tint ?: scheme.surfaceContainerLow
     Box(
         modifier = modifier
             .scale(scale)
             .then(
-                if (depth > 6.dp) {
+                if (depth > 8.dp) {
                     Modifier.shadow(
-                        elevation = depth / 2,
+                        elevation = depth / 3,
                         shape = shape,
-                        ambientColor = Color.Black.copy(alpha = 0.18f),
-                        spotColor = Color.Black.copy(alpha = 0.24f),
+                        ambientColor = scheme.onSurface.copy(alpha = 0.10f),
+                        spotColor = scheme.onSurface.copy(alpha = 0.14f),
                     )
                 } else Modifier,
             )
             .clip(shape)
             .background(container)
-            .background(
-                Brush.verticalGradient(
-                    0f to Color.White.copy(alpha = 0.08f),
-                    0.6f to Color.Transparent,
-                ),
-            )
-            .border(1.dp, scheme.outlineVariant.copy(alpha = 0.55f), shape)
             .then(
                 if (onClick != null) {
                     Modifier.clickable(
@@ -172,6 +166,8 @@ fun ClayPill(
     tint: Color = MaterialTheme.colorScheme.primary,
     icon: ImageVector? = null,
     onClick: (() -> Unit)? = null,
+    /** Sélection pleine : la puce active doit se lire d'un coup d'œil. */
+    filled: Boolean = false,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
@@ -194,9 +190,9 @@ fun ClayPill(
                 } else Modifier,
             ),
         shape = CircleShape,
-        color = tint.copy(alpha = 0.16f),
-        contentColor = tint,
-        border = BorderStroke(1.dp, tint.copy(alpha = 0.28f)),
+        color = if (filled) tint else tint.copy(alpha = 0.14f),
+        contentColor = if (filled) MaterialTheme.colorScheme.onPrimary else tint,
+        border = if (filled) null else BorderStroke(1.dp, tint.copy(alpha = 0.22f)),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
@@ -216,22 +212,20 @@ fun ClaySectionTitle(
     modifier: Modifier = Modifier,
     action: (@Composable () -> Unit)? = null,
 ) {
+    // Titre de section nu : pas de pastille, pas de cadre. La hiérarchie vient
+    // de la taille et de l'espace, comme sur le Pixel.
     Row(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Box(
-                Modifier
-                    .size(12.dp)
-                    .clay(depth = 3.dp, shape = CircleShape, tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)),
-            )
-            Text(text, style = MaterialTheme.typography.headlineMedium)
-        }
+        Text(
+            text,
+            fontSize = 20.sp,
+            lineHeight = 26.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = (-0.3).sp,
+        )
         action?.invoke()
     }
 }
@@ -496,23 +490,11 @@ fun ConfirmDeleteDialog(
 @Composable
 fun UpdateAvailableDialog(
     info: UpdateInfo,
-    onDownload: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    GlassDialog(
-        onDismissRequest = onDismiss,
-        title = "Mise à jour disponible",
-        body = buildString {
-            append("Ardoise ")
-            append(info.versionName ?: "plus récente")
-            append(" est disponible sur le site de distribution. ")
-            append("Android l'installera en conservant tes données et ta session.")
-        },
-        confirmLabel = "Télécharger",
-        onConfirm = onDownload,
-        dismissLabel = "Plus tard",
-        onDismiss = onDismiss,
-    )
+    // Le bouton télécharge maintenant l'APK dans l'application et ouvre
+    // l'installateur Android : plus aucun passage par le navigateur.
+    UpdateDownloadDialog(info = info, onDismiss = onDismiss)
 }
 
 /**

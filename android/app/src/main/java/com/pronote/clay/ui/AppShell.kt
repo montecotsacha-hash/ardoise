@@ -1,146 +1,111 @@
 package com.pronote.clay.ui
 
-import android.content.Intent
-import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material.icons.rounded.CalendarMonth
-import androidx.compose.material.icons.rounded.DarkMode
-import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material3.DrawerValue
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.pronote.clay.data.remote.UpdateStatus
-import com.pronote.clay.ui.components.ClayDivider
-import com.pronote.clay.ui.components.ClaySurface
-import com.pronote.clay.ui.components.ConfirmDeleteDialog
 import com.pronote.clay.ui.components.UpdateAvailableDialog
-import com.pronote.clay.ui.components.clay
-import com.pronote.clay.ui.theme.LocalFrosted
 import com.pronote.clay.ui.screens.HomeScreen
 import com.pronote.clay.ui.screens.SettingsScreen
 import com.pronote.clay.ui.screens.TimetableScreen
-import com.pronote.clay.ui.theme.ClayDimens
 import com.pronote.clay.ui.viewmodel.HomeViewModel
 import com.pronote.clay.ui.viewmodel.TimetableViewModel
-import kotlinx.coroutines.launch
 
 /**
- * The top-level sections reachable from the navigation menu.
+ * The three sections of the app.
  *
- * Previously the timetable was pushed as an extra layer ON TOP of the
- * dashboard, so both screens were composed at once and the schedule ended up
- * hidden behind the home content. Sections now replace each other: exactly one
- * is on screen at any time.
+ * Navigation is a single floating bottom bar, like the system's own: one plane
+ * of glass over the content, no drawer, nothing hidden behind a hamburger.
  */
 enum class AppSection(val label: String, val icon: ImageVector) {
-    Dashboard("Tableau de bord", Icons.Rounded.Home),
+    Dashboard("Accueil", Icons.Rounded.Home),
     Timetable("Emploi du temps", Icons.Rounded.CalendarMonth),
-    Settings("Paramètres", Icons.Rounded.Settings),
+    Settings("Réglages", Icons.Rounded.Settings),
 }
 
 /**
- * AppShell — the authenticated surface: a clay navigation menu plus the section
- * it selects. It owns the only navigation state of the app, so a screen can
+ * AppShell — the authenticated surface: the current section and the floating
+ * navigation bar. It owns the only navigation state of the app, so a screen can
  * never be drawn under another one.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppShell(viewModel: HomeViewModel) {
-    val drawerState = rememberDrawerState(DrawerValue.Closed)
-    val scope = rememberCoroutineScope()
     var section by rememberSaveable { mutableStateOf(AppSection.Dashboard) }
 
-    fun goTo(target: AppSection) {
-        section = target
-        scope.launch { drawerState.close() }
+    // Retour système : depuis une autre section, il ramène à l'accueil au lieu
+    // de quitter l'application.
+    BackHandler(enabled = section != AppSection.Dashboard) {
+        section = AppSection.Dashboard
     }
 
-    // Retour système : il ferme le tiroir s'il est ouvert, sinon il ramène au
-    // tableau de bord. Sans ce garde-fou, le bouton retour quittait
-    // l'application depuis les paramètres ou l'emploi du temps.
-    androidx.activity.compose.BackHandler(
-        enabled = drawerState.isOpen || section != AppSection.Dashboard,
-    ) {
-        if (drawerState.isOpen) {
-            scope.launch { drawerState.close() }
-        } else {
-            section = AppSection.Dashboard
-        }
-    }
-
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            ClayMenu(section = section, viewModel = viewModel, onSelect = ::goTo)
-        },
-    ) {
+    Box(Modifier.fillMaxSize()) {
         AnimatedContent(
             targetState = section,
             transitionSpec = {
                 val forward = targetState.ordinal >= initialState.ordinal
                 (
-                    slideInHorizontally(tween(300)) { if (forward) it / 6 else -it / 6 } +
-                        fadeIn(tween(240))
+                    slideInHorizontally(
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioNoBouncy,
+                            stiffness = Spring.StiffnessMediumLow,
+                        ),
+                    ) { if (forward) it / 10 else -it / 10 } +
+                        fadeIn(spring(stiffness = Spring.StiffnessMediumLow))
                     ) togetherWith (
-                    slideOutHorizontally(tween(300)) { if (forward) -it / 6 else it / 6 } +
-                        fadeOut(tween(160))
+                    slideOutHorizontally(tween(180)) { if (forward) -it / 14 else it / 14 } +
+                        fadeOut(tween(140))
                     )
             },
             label = "section",
+            modifier = Modifier.fillMaxSize(),
         ) { target ->
             when (target) {
-                AppSection.Dashboard -> HomeScreen(
-                    viewModel = viewModel,
-                    onOpenMenu = { scope.launch { drawerState.open() } },
-                )
+                AppSection.Dashboard -> HomeScreen(viewModel = viewModel)
 
                 AppSection.Timetable -> {
                     // Activity-scoped on purpose: swiping between days and weeks
@@ -152,237 +117,111 @@ fun AppShell(viewModel: HomeViewModel) {
                         }
                     TimetableScreen(
                         viewModel = timetableViewModel,
-                        onBack = { goTo(AppSection.Dashboard) },
+                        onBack = { section = AppSection.Dashboard },
                     )
                 }
 
                 AppSection.Settings -> SettingsScreen(
                     viewModel = viewModel,
-                    onBack = { goTo(AppSection.Dashboard) },
+                    onBack = { section = AppSection.Dashboard },
                 )
             }
         }
 
-        // La proposition de mise à jour du site de distribution, au-dessus de
-        // la section courante : elle ne disparaît pas en changeant d'écran.
+        FloatingNavBar(
+            section = section,
+            onSelect = { section = it },
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
+
+        // La proposition de mise à jour, au-dessus de la section courante : elle
+        // ne disparaît pas en changeant d'écran. Le téléchargement se fait dans
+        // l'app, puis l'installateur Android s'ouvre sur l'APK.
         val updateStatus by viewModel.updateStatus.collectAsState()
         val currentUpdate = updateStatus
         if (currentUpdate is UpdateStatus.Available && currentUpdate.promptVisible) {
-            val context = LocalContext.current
             UpdateAvailableDialog(
                 info = currentUpdate.info,
-                onDownload = {
-                    viewModel.dismissUpdate()
-                    // Le navigateur télécharge l'APK : Android l'installera
-                    // par-dessus la version actuelle, données conservées.
-                    context.startActivity(
-                        Intent(Intent.ACTION_VIEW, Uri.parse(currentUpdate.info.apkUrl)),
-                    )
-                },
                 onDismiss = { viewModel.dismissUpdate() },
             )
         }
     }
 }
 
-/**
- * The clay drawer: every section, the theme switch, the account actions, plus
- * the privacy reminder.
- *
- * This drawer is the ONLY way to reach the settings, the timetable and the
- * account actions: the dashboard carries no shortcut to them, so there is
- * exactly one path to each destination.
- */
+/** Barre de navigation flottante : une seule pilule de verre sur le contenu. */
 @Composable
-private fun ClayMenu(
+private fun FloatingNavBar(
     section: AppSection,
-    viewModel: HomeViewModel,
     onSelect: (AppSection) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    val preferences by viewModel.preferences.collectAsState()
-    var confirmDelete by rememberSaveable { mutableStateOf(false) }
-    // Le thème appliqué, pas la préférence brute : sans choix explicite
-    // (`darkTheme == null`), l'app suit le mode sombre du système. Lire
-    // `darkTheme == true` affichait donc l'interrupteur éteint sur une app
-    // sombre, et il fallait le basculer deux fois pour obtenir du clair.
-    val isDark = preferences.darkTheme ?: isSystemInDarkTheme()
-    val flipTheme = { viewModel.updatePreferences(preferences.copy(darkTheme = !isDark)) }
-    // The drawer is chrome: a frosted panel over the dimmed app, per the
-    // glass placement rule. Its tint is a SurfaceContainer, so it stays
-    // readable when the platform cannot blur.
-    ModalDrawerSheet(
-        modifier = Modifier.fillMaxHeight(),
-        drawerShape = RoundedCornerShape(topEnd = 32.dp, bottomEnd = 32.dp),
-        // Nearly opaque on purpose: the drawer sits over the dimmed dashboard,
-        // and text over content it cannot blur would break contrast.
-        drawerContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        drawerContentColor = MaterialTheme.colorScheme.onSurface,
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(horizontal = 18.dp, vertical = 12.dp)
+            .shadow(
+                elevation = 16.dp,
+                shape = CircleShape,
+                ambientColor = scheme.primary.copy(alpha = 0.28f),
+                spotColor = scheme.primary.copy(alpha = 0.32f),
+            )
+            .clip(CircleShape)
+            .background(scheme.surfaceContainerHigh)
+            .padding(horizontal = 6.dp, vertical = 7.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = ClayDimens.ScreenPadding)
-                .padding(top = 28.dp, bottom = 30.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    Modifier
-                        .size(44.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        Icons.Rounded.School,
-                        contentDescription = null,
-                        modifier = Modifier.size(24.dp),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
-                }
-                Spacer(Modifier.width(14.dp))
-                Column {
-                    Text(
-                        "Ardoise",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Black,
-                    )
-                    Text(
-                        "Menu",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-            Spacer(Modifier.height(26.dp))
-
-            AppSection.entries.forEach { item ->
-                MenuItem(
-                    item = item,
-                    selected = item == section,
-                    onClick = { onSelect(item) },
+        AppSection.entries.forEach { item ->
+            val selected = item == section
+            val background by animateColorAsState(
+                targetValue = if (selected) scheme.primary else Color.Transparent,
+                animationSpec = spring(dampingRatio = 0.78f, stiffness = Spring.StiffnessMediumLow),
+                label = "nav-background",
+            )
+            val content by animateColorAsState(
+                targetValue = if (selected) scheme.onPrimary else scheme.onSurfaceVariant,
+                animationSpec = tween(220),
+                label = "nav-content",
+            )
+            val scale by animateFloatAsState(
+                targetValue = if (selected) 1f else 0.96f,
+                animationSpec = spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessMediumLow),
+                label = "nav-scale",
+            )
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                    }
+                    .clip(CircleShape)
+                    .background(background)
+                    .clickable(role = Role.Tab) { onSelect(item) }
+                    .padding(vertical = 13.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    item.icon,
+                    contentDescription = item.label,
+                    modifier = Modifier.size(21.dp),
+                    tint = content,
                 )
-                Spacer(Modifier.height(10.dp))
+                // Le libellé reste : une icône seule rend la navigation devinette.
+                AnimatedVisibility(visible = selected) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Spacer(Modifier.width(9.dp))
+                        Text(
+                            item.label,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = content,
+                        )
+                    }
+                }
             }
-
-            Spacer(Modifier.height(14.dp))
-            ClayDivider()
-            Spacer(Modifier.height(16.dp))
-
-            MenuRow(
-                icon = Icons.Rounded.DarkMode,
-                label = "Mode sombre",
-                trailing = {
-                    Switch(
-                        checked = isDark,
-                        onCheckedChange = { flipTheme() },
-                    )
-                },
-                onClick = flipTheme,
-            )
-            Spacer(Modifier.height(10.dp))
-            MenuRow(
-                icon = Icons.AutoMirrored.Rounded.Logout,
-                label = "Se déconnecter",
-                onClick = { viewModel.logout {} },
-            )
-            Spacer(Modifier.height(10.dp))
-            MenuRow(
-                icon = Icons.Rounded.Delete,
-                label = "Supprimer mes données",
-                iconTint = MaterialTheme.colorScheme.error,
-                labelColor = MaterialTheme.colorScheme.error,
-                onClick = { confirmDelete = true },
-            )
-
-            Spacer(Modifier.height(14.dp))
-            ClayDivider()
-            Spacer(Modifier.height(16.dp))
-            Text(
-                "Tes identifiants ne quittent jamais cet appareil : la connexion " +
-                    "est directe vers le serveur de ton établissement.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
-    }
-
-    ConfirmDeleteDialog(
-        visible = confirmDelete,
-        onDismiss = { confirmDelete = false },
-        onConfirm = {
-            confirmDelete = false
-            viewModel.deleteLocalData {}
-        },
-    )
-}
-
-/** A drawer row: no card, just a tactile row with an optional trailing control. */
-@Composable
-private fun MenuRow(
-    icon: ImageVector,
-    label: String,
-    iconTint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
-    labelColor: Color = MaterialTheme.colorScheme.onSurface,
-    trailing: (@Composable () -> Unit)? = null,
-    onClick: (() -> Unit)? = null,
-) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(50))
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = 18.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            icon,
-            contentDescription = null,
-            modifier = Modifier.size(21.dp),
-            tint = iconTint,
-        )
-        Spacer(Modifier.width(16.dp))
-        Text(
-            label,
-            style = MaterialTheme.typography.titleMedium,
-            color = labelColor,
-            modifier = Modifier.weight(1f),
-        )
-        trailing?.invoke()
-    }
-}
-
-@Composable
-private fun MenuItem(
-    item: AppSection,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(50))
-            .background(
-                if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
-            )
-            .clickable(onClick = onClick)
-            .padding(horizontal = 18.dp, vertical = 15.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            item.icon,
-            contentDescription = null,
-            modifier = Modifier.size(21.dp),
-            tint = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
-            else MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.width(16.dp))
-        Text(
-            item.label,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-            color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
-            else MaterialTheme.colorScheme.onSurface,
-        )
     }
 }

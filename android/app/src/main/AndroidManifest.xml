@@ -10,6 +10,9 @@
          gèlent les tâches de fond et les notifications n'arrivent qu'à
          l'ouverture de l'application. L'utilisateur reste libre de refuser. -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- Mise à jour depuis l'app : Android demande à l'utilisateur d'autoriser
+         l'installation d'applications inconnues pour Ardoise elle-même. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:name=".PronoteApp"
@@ -32,6 +35,18 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- L'APK de mise à jour est téléchargé dans le stockage privé de
+             l'app puis partagé, en lecture seule, avec l'installateur Android. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.updates"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
         <!-- Requise par les tests Compose Robolectric (createComposeRule). -->
         <activity
