@@ -75,7 +75,11 @@ class SyncManagerTest {
 
         override fun getCachedSnapshot(accountId: String): SchoolSnapshot? = current
 
-        override suspend fun sync(accountId: String): PronoteResult<SchoolSnapshot> {
+        override fun availablePeriods(accountId: String) = emptyList<com.pronote.clay.domain.PeriodOption>()
+
+        override fun selectedPeriodId(accountId: String): String? = null
+
+        override suspend fun sync(accountId: String, periodId: String?): PronoteResult<SchoolSnapshot> {
             syncCount++
             if (failure != null && failuresBeforeSuccess > 0) {
                 failuresBeforeSuccess--

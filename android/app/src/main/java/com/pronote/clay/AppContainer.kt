@@ -19,6 +19,10 @@ import com.pronote.clay.domain.DeleteLocalDataUseCase
 import com.pronote.clay.domain.GetAveragesUseCase
 import com.pronote.clay.domain.GetCachedDataUseCase
 import com.pronote.clay.domain.GetGradesUseCase
+import com.pronote.clay.domain.GetHistoryUseCase
+import com.pronote.clay.domain.GetPeriodsUseCase
+import com.pronote.clay.domain.GetSelectedPeriodUseCase
+import com.pronote.clay.domain.LoadPeriodUseCase
 import com.pronote.clay.domain.GetStudentUseCase
 import com.pronote.clay.domain.GetSubjectRowsUseCase
 import com.pronote.clay.domain.GetSubjectsUseCase
@@ -118,6 +122,10 @@ class AppContainer(context: Context) {
     val getSubjectRows = GetSubjectRowsUseCase()
     val getTimetable = GetTimetableUseCase(repository)
     val calculateGeneralAverage = CalculateGeneralAverageUseCase()
+    val getPeriods = GetPeriodsUseCase(repository)
+    val getSelectedPeriod = GetSelectedPeriodUseCase(repository)
+    val loadPeriod = LoadPeriodUseCase(repository)
+    val getHistory = GetHistoryUseCase(repository)
 
     /**
      * The single account on this device. A multi-profile build would replace this

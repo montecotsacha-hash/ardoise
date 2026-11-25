@@ -48,6 +48,12 @@ data class PronoteSubjectAverageDto(
     val periode: String? = null,
 )
 
+/** Une période Pronote : trimestre, semestre ou année. */
+data class PronotePeriodDto(
+    val id: String? = null,
+    val name: String? = null,
+)
+
 data class PronoteRawPayload(
     val student: PronoteStudentDto,
     val subjects: List<PronoteSubjectDto>,
@@ -56,6 +62,10 @@ data class PronoteRawPayload(
     /** Null when the establishment hides the general average. */
     val generalAverage: Double? = null,
     val period: String = "T2",
+    /** Toutes les périodes proposées par l'établissement (T1, T2, T3…). */
+    val periods: List<PronotePeriodDto> = emptyList(),
+    /** Période réellement demandée, pour que l'app sache quoi afficher. */
+    val periodId: String? = null,
 )
 
 /** One course of the timetable, in the connector's raw shape. */
@@ -114,11 +124,16 @@ interface PronoteDataSource {
         deviceUuid: String,
     ): PronoteResult<PronoteAuthResult>
 
+    /**
+     * Notes et moyennes. [periodId] choisit la période Pronote (trimestre) ;
+     * null laisse le serveur envoyer la période courante.
+     */
     suspend fun fetchAll(
         token: String,
         schoolUrl: String,
         username: String,
         deviceUuid: String,
+        periodId: String? = null,
     ): PronoteResult<PronoteRawPayload>
 
     /**
@@ -167,8 +182,9 @@ class PronoteCompatibilityLayer(private val source: PronoteDataSource) {
         schoolUrl: String,
         username: String,
         deviceUuid: String,
+        periodId: String? = null,
     ): PronoteResult<PronoteRawPayload> = guard {
-        when (val result = source.fetchAll(token, schoolUrl, username, deviceUuid)) {
+        when (val result = source.fetchAll(token, schoolUrl, username, deviceUuid, periodId)) {
             is PronoteResult.Success -> PronoteResult.Success(assertPayload(result.value))
             is PronoteResult.Failure -> result
         }

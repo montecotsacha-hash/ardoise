@@ -589,15 +589,20 @@ internal class PronoteSession private constructor(
         )
     }
 
-    /** Dernières notes + moyennes par matière pour la période par défaut. */
-    fun readSnapshot(): PronoteRawPayload {
-        val period = defaultPeriod
+    /**
+     * Dernières notes + moyennes par matière d'une période.
+     *
+     * [period] null vise la période courante ; un trimestre précis permet de
+     * revoir une moyenne passée (T1, T2…) au lieu du seul trimestre en cours.
+     */
+    fun readSnapshot(period: Period? = null): PronoteRawPayload {
+        val active = period ?: defaultPeriod
             ?: throw ConnectorProtocolError("Aucune période disponible sur ce compte")
         val response = post(
             "DernieresNotes",
             JSONObject()
                 .put("Signature", JSONObject().put("onglet", 198))
-                .put("data", JSONObject().put("Periode", JSONObject().put("N", period.id).put("L", period.name))),
+                .put("data", JSONObject().put("Periode", JSONObject().put("N", active.id).put("L", active.name))),
         ).contentData()
 
         val subjects = LinkedHashMap<String, PronoteSubjectDto>()
@@ -651,7 +656,7 @@ internal class PronoteSession private constructor(
                         nomCourt = subjectName.take(3).uppercase(),
                     )
                 }
-                averages.add(PronoteSubjectAverageDto(matiere = subjectId, moyenne = value, periode = period.name))
+                averages.add(PronoteSubjectAverageDto(matiere = subjectId, moyenne = value, periode = active.name))
             }
         }
 
@@ -674,7 +679,9 @@ internal class PronoteSession private constructor(
             grades = grades,
             subjectAverages = averages,
             generalAverage = generalAverage,
-            period = period.name,
+            period = active.name,
+            periods = periods.map { PronotePeriodDto(id = it.id, name = it.name) },
+            periodId = active.id,
         )
     }
 

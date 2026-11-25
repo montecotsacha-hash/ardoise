@@ -21,6 +21,8 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -106,6 +108,10 @@ fun HomeScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val online by viewModel.online.collectAsState()
+    val periods by viewModel.periods.collectAsState()
+    val selectedPeriod by viewModel.selectedPeriod.collectAsState()
+    // Courbe de l'année, tous trimestres déjà consultés confondus.
+    val history by viewModel.history.collectAsState()
 
     val success = state as? HomeUiState.Success
     val offline = state as? HomeUiState.Offline
@@ -116,6 +122,11 @@ fun HomeScreen(
     val average = success?.average ?: offline?.average ?: issue?.average
     val subjects = success?.subjects ?: offline?.subjects ?: issue?.subjects ?: error?.subjects.orEmpty()
     val refreshing = success?.refreshing ?: false
+    // Un trimestre sans note n'est pas une erreur : on le dit plutôt que de
+    // laisser croire que la connexion a échoué.
+    val periodEmptyHint = if (periods.size > 1) {
+        "Aucune note dans ce trimestre : choisis une autre période ci-dessus."
+    } else null
 
     // La note ouverte dans la fiche du bas. La liste ne montre que l'essentiel :
     // le détail vit ici, dans un panneau qui monte du bas.
@@ -152,20 +163,38 @@ fun HomeScreen(
             error = error,
         )
 
+        if (periods.size > 1) {
+            item {
+                ClayReveal(index = 1) {
+                    Column {
+                        PeriodSelector(
+                            periods = periods,
+                            selectedId = selectedPeriod,
+                            onSelect = viewModel::selectPeriod,
+                        )
+                        Spacer(Modifier.height(14.dp))
+                    }
+                }
+            }
+        }
+
         item {
             ClayReveal(index = 1) {
                 if (average != null) {
-                    AverageCard(average)
+                    AverageCard(average, periodLabel = periods.firstOrNull { it.id == selectedPeriod }?.name)
                 } else {
-                    ClayEmptyState("Pas encore de moyenne", "Connecte-toi et lance une synchronisation.")
+                    ClayEmptyState(
+                        "Pas encore de moyenne",
+                        periodEmptyHint ?: "Connecte-toi et lance une synchronisation.",
+                    )
                 }
             }
         }
         item { Spacer(Modifier.height(ClayDimens.SectionGap)) }
 
-        homeHistorySection(snapshot?.history.orEmpty())
-        homeSubjectsSection(subjects)
-        homeGradesSection(snapshot) { selectedGrade = it }
+        homeHistorySection(history)
+        homeSubjectsSection(subjects, periodEmptyHint)
+        homeGradesSection(snapshot, periodEmptyHint) { selectedGrade = it }
     }
 
         GradeDetailSheet(
@@ -241,7 +270,10 @@ private fun LazyListScope.homeHistorySection(history: List<com.pronote.clay.doma
 }
 
 /** Liste des matières, avec son état vide. */
-private fun LazyListScope.homeSubjectsSection(subjects: List<com.pronote.clay.domain.SubjectRow>) {
+private fun LazyListScope.homeSubjectsSection(
+    subjects: List<com.pronote.clay.domain.SubjectRow>,
+    emptyHint: String? = null,
+) {
     item {
         ClayReveal(index = 3) {
             Column {
@@ -251,7 +283,12 @@ private fun LazyListScope.homeSubjectsSection(subjects: List<com.pronote.clay.do
         }
     }
     if (subjects.isEmpty()) {
-        item { ClayEmptyState("Aucune matière", "Les matières apparaîtront après une synchronisation.") }
+        item {
+            ClayEmptyState(
+                "Aucune matière",
+                emptyHint ?: "Les matières apparaîtront après une synchronisation.",
+            )
+        }
     } else {
         // `index` feeds the stagger so the subjects cascade down the list
         // instead of all landing on the same frame.
@@ -269,6 +306,7 @@ private fun LazyListScope.homeSubjectsSection(subjects: List<com.pronote.clay.do
 /** Huit dernières notes, avec leur état vide. */
 private fun LazyListScope.homeGradesSection(
     snapshot: com.pronote.clay.domain.SchoolSnapshot?,
+    emptyHint: String? = null,
     onSelect: (Grade) -> Unit,
 ) {
     item {
@@ -282,7 +320,12 @@ private fun LazyListScope.homeGradesSection(
     }
     val grades = snapshot?.grades.orEmpty().sortedByDescending { it.date }
     if (grades.isEmpty()) {
-        item { ClayEmptyState("Aucune note", "Les nouvelles notes s'afficheront ici.") }
+        item {
+            ClayEmptyState(
+                "Aucune note",
+                emptyHint ?: "Les nouvelles notes s'afficheront ici.",
+            )
+        }
     } else {
         itemsIndexed(grades.take(8), key = { _, grade -> grade.id }) { index, grade ->
             ClayReveal(index = 2 + index) {
@@ -417,7 +460,10 @@ private fun OfflineBanner(snapshot: com.pronote.clay.domain.SchoolSnapshot?) {
  * after a sync) so the first screen never pops in statically.
  */
 @Composable
-private fun AverageCard(average: com.pronote.clay.domain.AverageSummary) {
+private fun AverageCard(
+    average: com.pronote.clay.domain.AverageSummary,
+    periodLabel: String? = null,
+) {
     val animated = remember { Animatable(0f) }
 
     LaunchedEffect(average.value) {
@@ -433,6 +479,17 @@ private fun AverageCard(average: com.pronote.clay.domain.AverageSummary) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
+                if (periodLabel != null) {
+                    // Sans ce repère, on ne savait pas si le grand nombre parlait
+                    // du trimestre courant ou de celui qu'on venait d'ouvrir.
+                    Text(
+                        periodLabel.uppercase(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        letterSpacing = 1.sp,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                }
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(
                         AverageCalculator.formatAverage(animated.value.toDouble()),
@@ -487,6 +544,40 @@ private fun AverageCard(average: com.pronote.clay.domain.AverageSummary) {
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * Trimestres proposés par l'établissement (T1, T2, T3…).
+ *
+ * Changer de période recharge ses notes, sa moyenne et ses matières ; le
+ * trimestre choisi est retenu au prochain lancement.
+ */
+@Composable
+private fun PeriodSelector(
+    periods: List<com.pronote.clay.domain.PeriodOption>,
+    selectedId: String?,
+    onSelect: (String) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        periods.forEach { period ->
+            val selected = period.id == selectedId
+            val chipScale by animateFloatAsState(
+                targetValue = if (selected) 1.06f else 0.96f,
+                animationSpec = tween(220),
+                label = "trimestre-chip",
+            )
+            ClayPill(
+                text = period.name,
+                tint = if (selected) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.scale(chipScale),
+                onClick = { onSelect(period.id) },
+            )
         }
     }
 }

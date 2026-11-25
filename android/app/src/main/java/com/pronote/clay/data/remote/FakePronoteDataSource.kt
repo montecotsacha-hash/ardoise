@@ -85,6 +85,12 @@ class FakePronoteDataSource : PronoteDataSource {
             // has to compute it locally — the "hidden average" scenario.
             generalAverage = null,
             period = "T2",
+            periods = listOf(
+                PronotePeriodDto("t1", "1er trimestre"),
+                PronotePeriodDto("t2", "2e trimestre"),
+                PronotePeriodDto("t3", "3e trimestre"),
+            ),
+            periodId = "t2",
         )
     }
 
@@ -144,11 +150,24 @@ class FakePronoteDataSource : PronoteDataSource {
         schoolUrl: String,
         username: String,
         deviceUuid: String,
+        periodId: String?,
     ): PronoteResult<PronoteRawPayload> {
         delay(420)
         if (token.isBlank()) return PronoteResult.Failure(PronoteError.SessionExpired)
 
-        val payload = buildPayload(schoolUrl)
+        val base = buildPayload(schoolUrl)
+        // Le mode démo propose trois trimestres : le sélecteur de période doit
+        // pouvoir être essayé sans compte réel.
+        val chosen = base.periods.firstOrNull { it.id == periodId }
+        val payload = if (chosen != null && chosen.name != base.period) {
+            base.copy(
+                grades = base.grades.map { it.copy(date = it.date) },
+                subjectAverages = base.subjectAverages.map { it.copy(periode = chosen.name) },
+                generalAverage = base.generalAverage,
+                period = chosen.name.orEmpty(),
+                periodId = chosen.id,
+            )
+        } else base.copy(periodId = chosen?.id ?: base.periods.firstOrNull()?.id)
         // Occasionally introduce a brand-new grade so "nouvelle note" detection
         // and the change-of-average notification can be demonstrated.
         val withNews = if (Math.random() < 0.45) {

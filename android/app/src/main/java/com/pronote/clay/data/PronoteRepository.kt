@@ -64,7 +64,17 @@ interface PronoteRepository {
 
     fun getCachedSnapshot(accountId: String): SchoolSnapshot?
 
-    suspend fun sync(accountId: String): PronoteResult<SchoolSnapshot>
+    /**
+     * Récupère les notes. [periodId] choisit un trimestre précis ; null garde
+     * la période courante choisie par l'établissement.
+     */
+    suspend fun sync(accountId: String, periodId: String? = null): PronoteResult<SchoolSnapshot>
+
+    /** Périodes proposées par l'établissement, mémorisées à la dernière synchro. */
+    fun availablePeriods(accountId: String): List<com.pronote.clay.domain.PeriodOption>
+
+    /** Trimestre actuellement affiché, ou null tant qu'aucune synchro n'a eu lieu. */
+    fun selectedPeriodId(accountId: String): String?
 
     suspend fun logout(accountId: String)
 
@@ -132,7 +142,17 @@ class PronoteRepositoryImpl(
             ),
         )
         local.saveSessionMeta(accountId, session)
-        local.saveSnapshot(accountId, toSnapshot(auth.payload))
+        if (auth.payload.periods.isNotEmpty()) {
+            local.savePeriods(
+                accountId,
+                auth.payload.periods.mapNotNull { dto ->
+                    val id = dto.id?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                    com.pronote.clay.domain.PeriodOption(id, dto.name?.takeIf { it.isNotBlank() } ?: id)
+                },
+            )
+        }
+        auth.payload.periodId?.let { local.saveSelectedPeriod(accountId, it) }
+        local.saveSnapshot(accountId, toSnapshot(auth.payload), auth.payload.periodId)
         onSnapshotSaved()
         return PronoteResult.Success(session)
     }
@@ -140,11 +160,17 @@ class PronoteRepositoryImpl(
     override suspend fun refreshSession(accountId: String): PronoteSession? =
         sessions.refreshSession(accountId)
 
-    override suspend fun sync(accountId: String): PronoteResult<SchoolSnapshot> {
+    override fun availablePeriods(accountId: String): List<com.pronote.clay.domain.PeriodOption> =
+        local.loadPeriods(accountId)
+
+    override fun selectedPeriodId(accountId: String): String? =
+        local.loadSelectedPeriod(accountId)
+
+    override suspend fun sync(accountId: String, periodId: String?): PronoteResult<SchoolSnapshot> {
         var stored = sessions.load(accountId)
             ?: return PronoteResult.Failure(PronoteError.SessionExpired)
 
-        var result = fetchSnapshot(stored)
+        var result = fetchSnapshot(stored, periodId)
 
         // Une session Pronote meurt sans prévenir : autre appareil connecté,
         // purge côté serveur, jeton jamais émis… Le mot de passe gardé dans le
@@ -153,14 +179,27 @@ class PronoteRepositoryImpl(
         if (result is PronoteResult.Failure && canRecover(result.error)) {
             if (sessions.refreshSession(accountId) != null) {
                 stored = sessions.load(accountId) ?: stored
-                result = fetchSnapshot(stored)
+                result = fetchSnapshot(stored, periodId)
             }
         }
 
         if (result is PronoteResult.Failure) return result
 
-        val snapshot = toSnapshot((result as PronoteResult.Success).value)
-        local.saveSnapshot(accountId, snapshot)
+        val payload = (result as PronoteResult.Success).value
+        if (payload.periods.isNotEmpty()) {
+            local.savePeriods(
+                accountId,
+                payload.periods.mapNotNull { dto ->
+                    val id = dto.id?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                    com.pronote.clay.domain.PeriodOption(id, dto.name?.takeIf { it.isNotBlank() } ?: id)
+                },
+            )
+        }
+
+        val snapshot = toSnapshot(payload)
+        val activePeriod = payload.periodId
+        local.saveSnapshot(accountId, snapshot, activePeriod)
+        if (activePeriod != null) local.saveSelectedPeriod(accountId, activePeriod)
         onSnapshotSaved()
         Logger.info("Grades updated")
         return PronoteResult.Success(snapshot)
@@ -169,12 +208,14 @@ class PronoteRepositoryImpl(
     /** Une seule collecte, avec les identifiants déjà stockés. */
     private suspend fun fetchSnapshot(
         stored: SecureCredentialsManager.StoredCredentials,
+        periodId: String? = null,
     ): PronoteResult<PronoteRawPayload> =
         connector.fetchAll(
             token = stored.token.orEmpty(),
             schoolUrl = stored.schoolUrl,
             username = stored.username,
             deviceUuid = stored.deviceUuid.orEmpty(),
+            periodId = periodId,
         )
 
     /**
@@ -185,9 +226,18 @@ class PronoteRepositoryImpl(
     private fun canRecover(error: PronoteError): Boolean =
         error is PronoteError.SessionExpired || error is PronoteError.InvalidCredentials
 
+    /**
+     * Historique de l'année : fusionne les points de tous les trimestres déjà
+     * consultés. Sans ça, la courbe « Année » ne montrait que le trimestre en
+     * cours et disparaissait dès qu'il n'avait qu'une note.
+     */
     override fun getHistory(accountId: String, days: Long): List<HistoryPoint> {
-        val snapshot = local.loadSnapshot(accountId) ?: return emptyList()
-        return filterHistory(snapshot.history, days)
+        val merged = local.loadSnapshots(accountId)
+            .flatMap { it.history }
+            .distinctBy { it.date }
+            .sortedBy { it.date }
+        if (merged.isEmpty()) return emptyList()
+        return filterHistory(merged, days)
     }
 
     /** Small per-week timetable cache — survives week-to-week swipes. */

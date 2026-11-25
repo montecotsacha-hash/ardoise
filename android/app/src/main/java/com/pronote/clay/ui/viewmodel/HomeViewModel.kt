@@ -113,6 +113,76 @@ class HomeViewModel(
     private val _loginDraft = MutableStateFlow(LoginDraft())
     val loginDraft: StateFlow<LoginDraft> = _loginDraft.asStateFlow()
 
+    // ---- périodes (trimestres) --------------------------------------------
+
+    private val _periods = MutableStateFlow<List<com.pronote.clay.domain.PeriodOption>>(emptyList())
+    val periods: StateFlow<List<com.pronote.clay.domain.PeriodOption>> = _periods.asStateFlow()
+
+    private val _selectedPeriod = MutableStateFlow<String?>(null)
+    val selectedPeriod: StateFlow<String?> = _selectedPeriod.asStateFlow()
+
+    /**
+     * Historique de l'année, tous trimestres confondus. La courbe ne doit pas
+     * disparaître quand le trimestre en cours n'a qu'une note.
+     */
+    private val _history = MutableStateFlow<List<com.pronote.clay.domain.HistoryPoint>>(emptyList())
+    val history: StateFlow<List<com.pronote.clay.domain.HistoryPoint>> = _history.asStateFlow()
+
+    private fun refreshPeriods(accountId: String?) {
+        if (accountId == null) {
+            _periods.value = emptyList()
+            _selectedPeriod.value = null
+            _history.value = emptyList()
+            return
+        }
+        _periods.value = container.getPeriods.execute(accountId)
+        _selectedPeriod.value = container.getSelectedPeriod.execute(accountId)
+        _history.value = container.getHistory.execute(
+            accountId,
+            com.pronote.clay.data.HistoryPeriods.ALL_DAYS,
+        )
+    }
+
+    /**
+     * Bascule sur un trimestre : notes, moyenne et matières de cette période.
+     * Le trimestre choisi est mémorisé pour les prochains lancements.
+     */
+    fun selectPeriod(periodId: String) {
+        val accountId = container.activeAccountId() ?: return
+        if (_selectedPeriod.value == periodId) return
+        _selectedPeriod.value = periodId
+        viewModelScope.launch {
+            val wasSuccess = _state.value as? HomeUiState.Success
+            _state.value = if (wasSuccess != null) wasSuccess.copy(refreshing = true) else HomeUiState.Loading
+            when (val result = container.loadPeriod.execute(accountId, periodId)) {
+                is PronoteResult.Success -> {
+                    _state.value = buildSuccess(result.value, refreshing = false)
+                    refreshPeriods(accountId)
+                }
+                is PronoteResult.Failure -> {
+                    // On garde l'écran utilisable et on le dit ; le cache du
+                    // trimestre reste affiché s'il existe.
+                    val cached = container.getCachedData.execute(accountId)
+                    _state.value = if (cached != null) {
+                        HomeUiState.SyncIssue(
+                            snapshot = cached,
+                            average = container.calculateGeneralAverage.execute(cached),
+                            subjects = container.getSubjectRows.execute(cached),
+                            message = result.error.userMessage,
+                            hint = result.error.hint,
+                        )
+                    } else {
+                        HomeUiState.Error(
+                            message = result.error.userMessage,
+                            hint = result.error.hint,
+                            snapshot = null,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     fun updateLoginSchoolUrl(value: String) {
         _loginDraft.value = _loginDraft.value.copy(schoolUrl = value)
     }
@@ -183,6 +253,7 @@ class HomeViewModel(
             return
         }
 
+        refreshPeriods(accountId)
         _state.value = buildSuccess(cached, refreshing = true)
 
         viewModelScope.launch {
@@ -201,6 +272,26 @@ class HomeViewModel(
         viewModelScope.launch { sync(force = true) }
     }
 
+    /**
+     * Repli une seule fois vers la période précédente quand celle du serveur
+     * est vide. Aucune boucle : si elle est vide aussi, l'écran garde le
+     * sélecteur et un message explicite.
+     */
+    private suspend fun fallbackToPreviousPeriod(accountId: String) {
+        val periods = container.getPeriods.execute(accountId)
+        if (periods.size < 2) return
+        val current = container.getSelectedPeriod.execute(accountId)
+        val index = periods.indexOfFirst { it.id == current }
+        val previous = periods.getOrNull(index - 1) ?: return
+        when (val result = container.loadPeriod.execute(accountId, previous.id)) {
+            is PronoteResult.Success -> if (result.value.grades.isNotEmpty()) {
+                _state.value = buildSuccess(result.value, refreshing = false)
+                refreshPeriods(accountId)
+            }
+            is PronoteResult.Failure -> Unit
+        }
+    }
+
     fun markSessionInvalid() {
         sessionValid = false
         applyCurrentState(container.networkMonitor.isOnline())
@@ -215,6 +306,7 @@ class HomeViewModel(
         when {
             result.ok && result.snapshot != null -> {
                 _state.value = buildSuccess(result.snapshot, refreshing = false)
+                refreshPeriods(accountId)
                 emitNotifications(result)
             }
             result.skipped == SyncManager.SkipReason.OFFLINE -> {
@@ -328,12 +420,20 @@ class HomeViewModel(
                     container.syncManager.reset()
                     sessionValid = true
                     val snapshot = container.getCachedData.execute(accountId)
+                    refreshPeriods(accountId)
                     _state.value = if (snapshot != null) {
                         buildSuccess(snapshot, refreshing = false)
                     } else {
                         HomeUiState.Unauthenticated
                     }
                     onSuccess()
+                    // Pronote ouvre souvent sur le trimestre qui vient de
+                    // commencer : il est vide alors que le précédent porte
+                    // toutes les notes. On bascule une fois sur la période
+                    // précédente plutôt que d'afficher un tableau vide.
+                    if (snapshot != null && snapshot.grades.isEmpty()) {
+                        fallbackToPreviousPeriod(accountId)
+                    }
                 }
                 is PronoteResult.Failure -> {
                     // Only clear the value that caused the failure; the other
@@ -364,6 +464,7 @@ class HomeViewModel(
             container.activeAccountId()?.let { container.logout.execute(it) }
             container.setActiveAccount(null)
             sessionValid = false
+            refreshPeriods(null)
             _state.value = HomeUiState.Unauthenticated
             onDone()
         }
@@ -380,6 +481,7 @@ class HomeViewModel(
             container.refreshWidgets()
             _preferences.value = container.preferences.load()
             sessionValid = false
+            refreshPeriods(null)
             _state.value = HomeUiState.Unauthenticated
             onDone()
         }

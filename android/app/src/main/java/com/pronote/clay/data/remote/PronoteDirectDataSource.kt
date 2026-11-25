@@ -107,8 +107,13 @@ class PronoteDirectDataSource : PronoteDataSource {
         schoolUrl: String,
         username: String,
         deviceUuid: String,
+        periodId: String?,
     ): PronoteResult<PronoteRawPayload> = withContext(Dispatchers.IO) {
         val key = sessionKey(schoolUrl, username)
+        val period = periodId?.let { id ->
+            sessions[key]?.session?.periods?.firstOrNull { it.id == id }
+                ?: return@withContext PronoteResult.Failure(PronoteError.SessionExpired)
+        }
         // La clé porte déjà le couple établissement + identifiant : une entrée
         // trouvée est forcément LA session de ce compte. Filtrer en plus sur le
         // jeton faisait croire à une absence de session, parce qu'un login par
@@ -116,7 +121,7 @@ class PronoteDirectDataSource : PronoteDataSource {
         val active = sessions[key]
         if (active != null) {
             try {
-                return@withContext PronoteResult.Success(active.session.readSnapshot())
+                return@withContext PronoteResult.Success(active.session.readSnapshot(period))
             } catch (error: CancellationException) {
                 throw error
             } catch (error: SessionExpiredError) {
@@ -138,7 +143,12 @@ class PronoteDirectDataSource : PronoteDataSource {
         if (token.isBlank()) return@withContext PronoteResult.Failure(PronoteError.SessionExpired)
 
         when (val restored = connectWithToken(token, schoolUrl, username, deviceUuid)) {
-            is PronoteResult.Success -> PronoteResult.Success(restored.value.payload)
+            is PronoteResult.Success -> {
+                val session = sessions[key]?.session
+                val target = period ?: session?.defaultPeriod
+                val payload = session?.readSnapshot(target) ?: restored.value.payload
+                PronoteResult.Success(payload)
+            }
             is PronoteResult.Failure -> restored
         }
     }

@@ -11,6 +11,7 @@ la navigation et au papier — rien de plus.
 
 ## Versions
 
+- `1.6.6` — « Jetée » — 15 novembre 2026 : sélecteur de trimestre sur le tableau de bord (les périodes réelles de l'établissement : trimestres, bac blanc…). Pronote ouvrait sur un trimestre sans note : l'app bascule désormais d'elle-même sur la période précédente, et la courbe « Année » fusionne les trimestres consultés au lieu de disparaître.
 - `1.6.5` — « Ivoire » — 15 novembre 2026 : l'aperçu du widget « dernière note » ne se chargeait plus dans le sélecteur du lanceur, les widgets ne suivaient pas le passage en mode sombre, et ils gardaient la moyenne à l'écran après « Supprimer mes données ».
 - `1.6.4` — « Halo » — 15 novembre 2026 : Android 8.0 (API 26) devient le minimum pris en charge. L'app s'appuie sur `java.time`, absent d'Android 7.0/7.1 : elle ne pouvait pas s'y lancer. La demande de code de l'appareil passe désormais par l'API qui existe vraiment sur Android 9.
 - `1.6.3` — « Gouvernail » — 15 novembre 2026 : adresse Pronote acceptée sans `https://` (avec un message quand elle est vraiment inutilisable), ligne « Alertes même application fermée » qui se met à jour au retour de l'écran système, changement de semaine qui garde le jour choisi, bouton retour qui ramène au tableau de bord depuis une section, et plus de « serveur injoignable » quand le serveur omet le nom de l'établissement.
@@ -22,4 +23,4 @@ la navigation et au papier — rien de plus.
 
 ## Liste de réserve (noms pas encore utilisés)
 
-Jetée, Kabig, Lisière, Mâture, Nasse, Quille, Ralingue.
+Kabig, Lisière, Mâture, Nasse, Quille, Ralingue.

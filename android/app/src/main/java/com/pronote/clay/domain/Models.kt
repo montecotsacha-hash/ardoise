@@ -113,6 +113,12 @@ data class SchoolSnapshot(
     val fetchedAt: Long,
 )
 
+/** Une période proposée par l'établissement (T1, T2, T3, Année…). */
+data class PeriodOption(
+    val id: String,
+    val name: String,
+)
+
 /** Non-sensitive preferences (DataStore equivalent). */
 data class Preferences(
     val autoSync: Boolean = true,

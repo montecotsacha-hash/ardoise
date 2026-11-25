@@ -58,13 +58,64 @@ class LocalDataSource(context: Context) {
         )
     }
 
-    fun saveSnapshot(accountId: String, snapshot: SchoolSnapshot) {
+    /**
+     * Enregistre un instantané. [periodId] non nul le range aussi par
+     * trimestre, ce qui permet de revenir sur un trimestre passé sans réseau.
+     */
+    fun saveSnapshot(accountId: String, snapshot: SchoolSnapshot, periodId: String? = null) {
         try {
-            prefs.edit().putString(snapshotKey(accountId), encodeSnapshot(snapshot).toString()).apply()
+            prefs.edit()
+                .putString(snapshotKey(accountId), encodeSnapshot(snapshot).toString())
+                .apply()
+            if (periodId != null) {
+                prefs.edit()
+                    .putString(snapshotKey(accountId, periodId), encodeSnapshot(snapshot).toString())
+                    .apply()
+            }
         } catch (error: Throwable) {
             Logger.warn("Local snapshot write failed")
         }
     }
+
+    /** Tous les instantanés connus de ce compte, période courante comprise. */
+    fun loadSnapshots(accountId: String): List<SchoolSnapshot> {
+        val prefix = "snapshot.$accountId"
+        return prefs.all.entries
+            .filter { (key, value) -> key.startsWith(prefix) && value is String }
+            .mapNotNull { (_, value) ->
+                runCatching { decodeSnapshot(JSONObject(value as String)) }.getOrNull()
+            }
+    }
+
+    /** Périodes proposées par l'établissement (T1, T2, T3…), pour le sélecteur. */
+    fun savePeriods(accountId: String, periods: List<com.pronote.clay.domain.PeriodOption>) {
+        val array = JSONArray()
+        periods.forEach { period ->
+            array.put(JSONObject().put("id", period.id).put("name", period.name))
+        }
+        prefs.edit().putString("periods.$accountId", array.toString()).apply()
+    }
+
+    fun loadPeriods(accountId: String): List<com.pronote.clay.domain.PeriodOption> {
+        val raw = prefs.getString("periods.$accountId", null) ?: return emptyList()
+        return runCatching {
+            val array = JSONArray(raw)
+            (0 until array.length()).mapNotNull { index ->
+                val item = array.optJSONObject(index) ?: return@mapNotNull null
+                val id = item.optString("id")
+                val name = item.optString("name")
+                if (id.isNullOrBlank() || name.isNullOrBlank()) null
+                else com.pronote.clay.domain.PeriodOption(id, name)
+            }
+        }.getOrDefault(emptyList())
+    }
+
+    fun saveSelectedPeriod(accountId: String, periodId: String) {
+        prefs.edit().putString("period.$accountId", periodId).apply()
+    }
+
+    fun loadSelectedPeriod(accountId: String): String? =
+        prefs.getString("period.$accountId", null)?.takeIf { it.isNotBlank() }
 
     fun clearSnapshot(accountId: String) {
         prefs.edit().remove(snapshotKey(accountId)).apply()
@@ -72,10 +123,17 @@ class LocalDataSource(context: Context) {
 
     /** "Supprimer mes données" — wipes every trace of the account on this device. */
     fun clearAccount(accountId: String) {
-        prefs.edit().remove(snapshotKey(accountId)).apply()
+        val prefix = "snapshot.$accountId"
+        val keys = prefs.all.keys.filter {
+            it.startsWith(prefix) || it == "periods.$accountId" || it == "period.$accountId"
+        }
+        prefs.edit().apply {
+            keys.forEach { remove(it) }
+        }.apply()
     }
 
-    private fun snapshotKey(accountId: String) = "snapshot.$accountId"
+    private fun snapshotKey(accountId: String, periodId: String? = null) =
+        if (periodId == null) "snapshot.$accountId" else "snapshot.$accountId.$periodId"
 
     // ---- serialisation ----------------------------------------------------
 

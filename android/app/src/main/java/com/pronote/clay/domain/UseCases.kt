@@ -28,7 +28,30 @@ class GetCachedDataUseCase(private val repository: PronoteRepository) {
 }
 
 class SyncPronoteUseCase(private val repository: PronoteRepository) {
-    suspend fun execute(accountId: String) = repository.sync(accountId)
+    suspend fun execute(accountId: String, periodId: String? = null) =
+        repository.sync(accountId, periodId)
+}
+
+/** Périodes (trimestres) proposées par l'établissement. */
+class GetPeriodsUseCase(private val repository: PronoteRepository) {
+    fun execute(accountId: String): List<PeriodOption> = repository.availablePeriods(accountId)
+}
+
+/** Trimestre actuellement affiché. */
+class GetSelectedPeriodUseCase(private val repository: PronoteRepository) {
+    fun execute(accountId: String): String? = repository.selectedPeriodId(accountId)
+}
+
+/** Charge les notes d'un trimestre précis (sélecteur de période). */
+class LoadPeriodUseCase(private val repository: PronoteRepository) {
+    suspend fun execute(accountId: String, periodId: String) =
+        repository.sync(accountId, periodId)
+}
+
+/** Historique fusionné de tous les trimestres connus (courbe « Année »). */
+class GetHistoryUseCase(private val repository: PronoteRepository) {
+    fun execute(accountId: String, days: Long): List<HistoryPoint> =
+        repository.getHistory(accountId, days)
 }
 
 /** Timetable of one week, network-backed with a short repository cache. */
