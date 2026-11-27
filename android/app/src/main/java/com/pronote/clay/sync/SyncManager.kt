@@ -46,6 +46,9 @@ class SyncManager(
     /** Backoff after a hard auth failure so background retries stay rare. */
     private var authBlockedUntil = 0L
 
+    /** Erreur qui a posé le blocage, réaffichée telle quelle aux synchros muettes. */
+    private var authBlockedError: PronoteError = PronoteError.SessionExpired
+
     val isSyncing: Boolean get() = mutex.isLocked
 
     /**
@@ -82,8 +85,8 @@ class SyncManager(
         if (now < authBlockedUntil && !force) {
             return SyncResult(
                 ok = false,
-                error = PronoteError.SessionExpired.userMessage,
-                errorHint = PronoteError.SessionExpired.hint,
+                error = authBlockedError.userMessage,
+                errorHint = authBlockedError.hint,
             )
         }
 
@@ -113,10 +116,19 @@ class SyncManager(
         return when (result) {
             is PronoteResult.Failure -> {
                 Logger.warn("Sync failed")
-                if (result.error is PronoteError.InvalidCredentials ||
-                    result.error is PronoteError.CaptchaRequired
-                ) {
-                    authBlockedUntil = System.currentTimeMillis() + AUTH_BACKOFF_MS
+                when {
+                    result.error is PronoteError.InvalidCredentials ||
+                        result.error is PronoteError.CaptchaRequired -> {
+                        authBlockedError = result.error
+                        authBlockedUntil = System.currentTimeMillis() + AUTH_BACKOFF_MS
+                    }
+                    // Pronote limite les tentatives : chaque nouvelle synchro
+                    // automatique enverrait un login de plus et prolongerait
+                    // le blocage. On laisse passer du temps, sans rien envoyer.
+                    result.error is PronoteError.TooManyAttempts -> {
+                        authBlockedError = result.error
+                        authBlockedUntil = System.currentTimeMillis() + THROTTLE_BACKOFF_MS
+                    }
                 }
                 SyncResult(
                     ok = false,
@@ -143,6 +155,7 @@ class SyncManager(
     fun reset() {
         lastSyncAt = 0L
         authBlockedUntil = 0L
+        authBlockedError = PronoteError.SessionExpired
     }
 
     companion object {
@@ -157,6 +170,9 @@ class SyncManager(
 
         /** Backoff applied after a hard auth failure (bad creds, captcha). */
         const val AUTH_BACKOFF_MS = 15 * 60 * 1000L
+
+        /** Silence imposé quand Pronote suspend temporairement les connexions. */
+        const val THROTTLE_BACKOFF_MS = 30 * 60 * 1000L
 
         private val AUTH_BACKOFF = PronoteError.SessionExpired
 

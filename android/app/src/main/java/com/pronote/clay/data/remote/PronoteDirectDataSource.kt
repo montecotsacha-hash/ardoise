@@ -235,7 +235,11 @@ class PronoteDirectDataSource : PronoteDataSource {
         return when (error) {
             is BadCredentialsError -> PronoteError.InvalidCredentials
             is SecurityRequiredError -> PronoteError.CaptchaRequired
-            is SuspendedIPError, is BusyPageError, is RateLimitedError -> PronoteError.PronoteUnavailable
+            // « Adresse IP provisoirement suspendue » et « trop de tentatives »
+            // ne sont pas une panne : c'est Pronote qui refuse nos connexions
+            // pour un moment. Le dire évite de faire réessayer tout de suite.
+            is SuspendedIPError, is RateLimitedError -> PronoteError.TooManyAttempts
+            is BusyPageError -> PronoteError.PronoteUnavailable
             is AccessDeniedError, is AccountDisabledError -> PronoteError.InvalidCredentials
             is PageUnavailableError -> PronoteError.InvalidPronoteUrl
             is SessionExpiredError -> PronoteError.SessionExpired

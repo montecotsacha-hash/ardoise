@@ -199,6 +199,42 @@ class SyncManagerTest {
     }
 
     @Test
+    fun `cesse les synchros automatiques quand Pronote bloque les connexions`() = runBlocking {
+        // Après une mise à jour, la session est morte et chaque synchro
+        // automatique renvoyait un login de plus — ce qui entretenait la
+        // suspension d'IP côté Pronote. On attend sans rien envoyer.
+        val repository = FakeRepository(snapshot(grade("a")), PronoteError.TooManyAttempts)
+        val manager = SyncManager(repository) { true }
+
+        val first = manager.sync("acct")
+        assertFalse(first.ok)
+        assertEquals("Pronote bloque les connexions pour le moment.", first.error)
+        assertEquals(1, repository.syncCount)
+
+        val second = manager.sync("acct")
+        assertEquals(1, repository.syncCount)
+        assertEquals("Pronote bloque les connexions pour le moment.", second.error)
+        assertEquals(
+            "Trop de tentatives en peu de temps : attends environ une heure, puis réessaie.",
+            second.errorHint,
+        )
+    }
+
+    @Test
+    fun `une actualisation manuelle reste possible pendant le blocage`() = runBlocking {
+        val repository = FakeRepository(snapshot(grade("a")), PronoteError.TooManyAttempts).apply {
+            failuresBeforeSuccess = 1
+        }
+        val manager = SyncManager(repository) { true }
+
+        manager.sync("acct")
+        val forced = manager.sync("acct", force = true)
+
+        assertTrue(forced.ok)
+        assertEquals(2, repository.syncCount)
+    }
+
+    @Test
     fun `never syncs while offline`() = runBlocking {
         val repository = FakeRepository(snapshot(grade("a")))
         val manager = SyncManager(repository) { false }

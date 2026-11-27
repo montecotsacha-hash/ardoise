@@ -22,6 +22,16 @@ sealed class PronoteError(val userMessage: String, val hint: String? = null) {
         "Pronote ne répond pas pour le moment.",
         "Réessaie dans quelques minutes.",
     )
+
+    /**
+     * Pronote limite les connexions depuis cette adresse (anti-bruteforce) :
+     * insister ne fait que prolonger le blocage, donc on le dit clairement au
+     * lieu de faire croire à une panne du serveur.
+     */
+    object TooManyAttempts : PronoteError(
+        "Pronote bloque les connexions pour le moment.",
+        "Trop de tentatives en peu de temps : attends environ une heure, puis réessaie.",
+    )
     object CaptchaRequired : PronoteError(
         "Cet établissement demande une vérification supplémentaire.",
         "Ouvre Pronote dans un navigateur pour te connecter une fois, puis réessaie.",

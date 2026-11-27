@@ -1,24 +1,61 @@
 @import "tailwindcss";
 
+/*
+ * Palette et surfaces reprises du thème Android (ui/theme) : même fond, mêmes
+ * cartes tonales, mêmes accents. Les dégradés et les ombres « clay » de
+ * l'ancienne page ont disparu avec la refonte 1.6.9 de l'app — ici aussi tout
+ * est plat, sans relief.
+ */
 :root {
-  --clay-bg: #f3eefb;
-  --clay-surface: #faf7fe;
-  --clay-ink: #3a2e55;
-  --clay-muted: #6b5f87;
-  --clay-primary: #9b7be0;
-  --clay-primary-strong: #7c5ec2;
-  --clay-on-primary: #fdfbff;
-  --clay-soft: #e6ddf5;
-  --clay-shadow: rgba(31, 20, 64, 0.16);
-  --clay-shadow-soft: rgba(31, 20, 64, 0.12);
-  --clay-highlight: rgba(255, 255, 255, 0.7);
+  color-scheme: light dark;
+  --bg: #f3eefb;
+  --surface: #faf7fe;
+  --surface-container: #f2ecfc;
+  --surface-container-high: #ece4f9;
+  --ink: #3a2e55;
+  --muted: #6b5f87;
+  --primary: #9b7be0;
+  --on-primary: #fdfbff;
+  --primary-container: #e9ddff;
+  --on-primary-container: #24124a;
+  --outline: #d8cfea;
+  --accent-1: #9b7be0;
+  --accent-2: #6fc7b8;
+  --accent-3: #e8c36b;
+  --accent-4: #7fb3e8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #241f33;
+    --surface: #2e2842;
+    --surface-container: #2f2940;
+    --surface-container-high: #373047;
+    /* Texte blanc en mode sombre, comme dans l'application. */
+    --ink: #ffffff;
+    --muted: #dcd5ec;
+    --primary: #bba3f0;
+    --on-primary: #2a2240;
+    --primary-container: #4a3a72;
+    --on-primary-container: #e9ddff;
+    --outline: #443c58;
+    --accent-1: #bba3f0;
+    --accent-2: #6fc7b8;
+    --accent-3: #e8c36b;
+    --accent-4: #7fb3e8;
+  }
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
-  background: var(--clay-bg);
-  color: var(--clay-ink);
-  /* System-rounded stack only: no webfont request, so the page renders the
-     same offline and inside the sandboxed preview iframe. */
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  /* Même pile que l'application : aucune requête de police, rendu identique
+     hors ligne et dans l'aperçu. */
   font-family:
     ui-rounded, "SF Pro Rounded", "Segoe UI Variable Text", "Segoe UI",
     system-ui, -apple-system, "Helvetica Neue", sans-serif;
@@ -26,60 +63,109 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* Visible keyboard focus: the clay look keeps a purple halo instead of the
-   browser default outline, which disappears on the pastel background. */
+a {
+  color: inherit;
+}
+
 :focus-visible {
-  outline: 3px solid var(--clay-primary);
+  outline: 3px solid var(--primary);
   outline-offset: 3px;
 }
 
-/* Plush clay panel — same construction as the Android ClaySurface component. */
-.clay-card {
-  background: var(--clay-surface);
-  border-radius: 28px;
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  box-shadow:
-    10px 12px 26px var(--clay-shadow),
-    inset 0 2px 5px var(--clay-highlight);
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
+.page {
+  min-height: 100vh;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 0 20px 48px;
 }
 
-.clay-btn {
+/* ------------------------------------------------------------------ en-tête */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 2px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.app-icon {
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border-radius: 12px;
+}
+
+/* ------------------------------------------------------------------ boutons */
+
+.btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  border-radius: 22px;
-  padding: 16px 28px;
+  gap: 8px;
+  min-height: 52px;
+  padding: 0 26px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--on-primary);
+  font: inherit;
   font-weight: 700;
   text-align: center;
-  background: var(--clay-primary);
-  color: var(--clay-on-primary);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  box-shadow:
-    8px 10px 22px rgba(155, 123, 224, 0.45),
-    inset 0 2px 4px rgba(255, 255, 255, 0.35);
-  transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease,
-    filter 0.15s ease;
+  text-decoration: none;
+  transition: background-color 0.15s ease;
 }
 
-.clay-btn:active {
-  transform: translateY(0) scale(0.98);
+.btn:hover {
+  background: color-mix(in srgb, var(--primary) 88%, var(--ink));
 }
 
-.clay-btn--soft {
-  background: var(--clay-soft);
-  color: var(--clay-ink);
-  box-shadow:
-    6px 8px 18px var(--clay-shadow-soft),
-    inset 0 2px 4px rgba(255, 255, 255, 0.6);
+.btn:active {
+  background: color-mix(in srgb, var(--primary) 78%, var(--ink));
 }
 
-.clay-chip {
+.btn--small {
+  min-height: 44px;
+  padding: 0 20px;
+  font-size: 14px;
+}
+
+.btn--tonal {
+  background: var(--surface-container-high);
+  color: var(--ink);
+}
+
+.btn--tonal:hover,
+.btn--tonal:active {
+  background: color-mix(in srgb, var(--surface-container-high) 82%, var(--primary));
+}
+
+/* ------------------------------------------------------------------ accueil */
+
+.hero {
+  display: grid;
+  gap: 32px;
+  align-items: center;
+  padding: 24px 0 56px;
+}
+
+@media (min-width: 900px) {
+  .hero {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+    padding: 40px 0 64px;
+  }
+}
+
+.chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -87,64 +173,269 @@ body {
   padding: 6px 14px;
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.4px;
-  background: rgba(155, 123, 224, 0.18);
-  color: var(--clay-primary-strong);
+  letter-spacing: 0.02em;
+  background: var(--primary-container);
+  color: var(--on-primary-container);
 }
 
-/* Icône de l'app dans l'en-tête (public/icon.svg, copie de assets/icon.svg). */
-.clay-icon {
-  width: 38px;
-  height: 38px;
-  flex: none;
-  border-radius: 12px;
-  box-shadow:
-    3px 5px 12px rgba(31, 20, 64, 0.28),
-    inset 0 1px 2px rgba(255, 255, 255, 0.45);
+.hero h1 {
+  margin: 18px 0 0;
+  font-size: clamp(36px, 7vw, 58px);
+  line-height: 1.03;
+  font-weight: 800;
+  letter-spacing: -0.035em;
 }
 
-.accent-dot {
-  width: 16px;
-  height: 16px;
+.lead {
+  margin: 18px 0 0;
+  max-width: 34em;
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.lead strong {
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 26px;
+}
+
+.fineprint {
+  margin: 14px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Aperçu de la carte de moyenne telle que l'application l'affiche. */
+.preview {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  border-radius: 28px;
+  background: var(--surface);
+  border: 1px solid var(--outline);
+}
+
+.average-card {
+  display: grid;
+  gap: 6px;
+  padding: 22px;
+  border-radius: 24px;
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.average-card__period {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.average-card__value {
+  font-size: 54px;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+.average-card__value span {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0;
+  opacity: 0.8;
+}
+
+.average-card__pill {
+  justify-self: start;
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--on-primary) 16%, transparent);
+}
+
+.grade-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: var(--surface-container);
+  font-size: 14px;
+}
+
+.grade-row strong {
+  margin-left: auto;
+  font-weight: 800;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
   flex: none;
   border-radius: 999px;
-  box-shadow:
-    2px 3px 6px rgba(31, 20, 64, 0.22),
-    inset 0 1px 2px rgba(255, 255, 255, 0.55);
 }
 
-/* ---------------------------------------------------------------------------
-   Motion — every animation is opt-in, so a user who asked for reduced motion
-   gets a static page instead of moving elements.
-   --------------------------------------------------------------------------- */
+.preview__caption {
+  margin: 4px 4px 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ------------------------------------------------------------------- cartes */
+
+.card {
+  padding: 24px;
+  border-radius: 28px;
+  background: var(--surface);
+  border: 1px solid var(--outline);
+}
+
+.section-title {
+  margin: 0 0 18px;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.features {
+  display: grid;
+  gap: 14px;
+  padding-bottom: 48px;
+}
+
+@media (min-width: 720px) {
+  .features {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.feature {
+  display: grid;
+  gap: 8px;
+  padding: 22px;
+  border-radius: 24px;
+  background: var(--surface-container);
+}
+
+.feature__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.feature p {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+/* -------------------------------------------------------------- installation */
+
+.install {
+  margin-bottom: 40px;
+}
+
+.install__steps {
+  display: grid;
+  gap: 22px;
+  margin-top: 24px;
+}
+
+@media (min-width: 720px) {
+  .install__steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.step__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+}
+
+.step__number {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.step p {
+  margin: 8px 0 0;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.install__cta {
+  display: flex;
+  justify-content: center;
+  margin-top: 28px;
+}
+
+.install__note {
+  margin: 20px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* --------------------------------------------------------------------- pied */
+
+.footer {
+  display: grid;
+  gap: 16px;
+  justify-items: center;
+  padding-top: 8px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.footer .card {
+  max-width: 720px;
+  text-align: left;
+}
+
+.footer strong {
+  color: var(--ink);
+}
+
+.footer p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* ------------------------------------------------------------------- motion */
+
 @media (prefers-reduced-motion: no-preference) {
   html {
     scroll-behavior: smooth;
   }
 
   .reveal {
-    animation: clay-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: rise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
     animation-delay: var(--d, 0ms);
-  }
-
-  .clay-btn:hover {
-    transform: translateY(-2px);
-    filter: brightness(1.04);
-  }
-
-  .clay-btn--soft:hover {
-    transform: translateY(-2px);
-    filter: brightness(1.02);
-    box-shadow:
-      8px 12px 22px var(--clay-shadow-soft),
-      inset 0 2px 4px rgba(255, 255, 255, 0.6);
-  }
-
-  .clay-card--lift:hover {
-    transform: translateY(-3px);
-    box-shadow:
-      12px 16px 32px var(--clay-shadow),
-      inset 0 2px 5px var(--clay-highlight);
   }
 }
 
@@ -162,10 +453,10 @@ body {
   }
 }
 
-@keyframes clay-rise {
+@keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(16px);
+    transform: translateY(12px);
   }
 
   to {

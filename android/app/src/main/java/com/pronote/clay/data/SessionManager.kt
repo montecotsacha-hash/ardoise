@@ -52,6 +52,8 @@ class SessionManager(
     suspend fun restoreSession(accountId: String): PronoteResult<PronoteSession> {
         val stored = vault.load(accountId) ?: return PronoteResult.Failure(PronoteError.SessionExpired)
 
+        var lastFailure: PronoteError? = null
+
         // Un jeton vide n'est pas une session : le tenter renvoie une erreur du
         // serveur qui ressemble à de mauvais identifiants. On saute directement
         // au mot de passe du coffre.
@@ -62,16 +64,33 @@ class SessionManager(
                 username = stored.username,
                 deviceUuid = stored.deviceUuid.orEmpty(),
             )
-            if (restored is PronoteResult.Success) return commit(accountId, stored, restored.value)
+            when (restored) {
+                is PronoteResult.Success -> return commit(accountId, stored, restored.value)
+                is PronoteResult.Failure -> {
+                    lastFailure = restored.error
+                    // Pronote vient de refuser la connexion (suspension
+                    // temporaire, site indisponible) : relancer aussitôt le
+                    // mot de passe, c'est une deuxième connexion qui prolonge
+                    // le blocage. On rend la vraie erreur et on s'arrête là.
+                    if (restored.error is PronoteError.TooManyAttempts ||
+                        restored.error is PronoteError.PronoteUnavailable
+                    ) {
+                        return restored
+                    }
+                }
+            }
         }
 
         stored.password?.let { password ->
             val reauth = connector.authenticate(stored.schoolUrl, stored.username, password)
-            if (reauth is PronoteResult.Success) return commit(accountId, stored, reauth.value)
+            when (reauth) {
+                is PronoteResult.Success -> return commit(accountId, stored, reauth.value)
+                is PronoteResult.Failure -> lastFailure = reauth.error
+            }
         }
 
         Logger.warn("Session restore failed (token and password)")
-        return PronoteResult.Failure(PronoteError.SessionExpired)
+        return PronoteResult.Failure(lastFailure ?: PronoteError.SessionExpired)
     }
 
     /**

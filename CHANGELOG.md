@@ -11,6 +11,7 @@ la navigation et au papier — rien de plus.
 
 ## Versions
 
+- `1.6.11` — « Quille » — 27 novembre 2026 : après une mise à jour, Pronote pouvait suspendre temporairement les connexions — l'app enchaînait plusieurs tentatives (jeton puis mot de passe, à chaque synchro de fond) et affichait une panne vague. Elle s'arrête maintenant dès le refus, ne renvoie plus rien pendant trente minutes et explique clairement qu'il faut attendre avant de réessayer. Le site de téléchargement reprend par ailleurs le design plat de l'application (mêmes couleurs, mêmes cartes, mode sombre).
 - `1.6.10` — « Nasse » — 27 novembre 2026 : les notes ajoutées après coup au 1er trimestre mettent enfin sa moyenne à jour — la synchro suit le trimestre affiché et non plus celui du serveur. Et si Pronote n'a pas encore recalculé sa moyenne officielle, l'app affiche la moyenne recalculée à partir des notes fraîchement arrivées au lieu de rester figée sur l'ancienne.
 - `1.6.9` — « Mâture » — 25 novembre 2026 : interface simplifiée — les dégradés disparaissent (carte de moyenne, boutons, surfaces et fond), la pastille de la barre de navigation glisse d'un onglet à l'autre avec un rebond d'icône et un libellé qui s'ouvre, et le texte passe en blanc en mode sombre pour rester lisible sur tous les tons.
 - `1.6.8` — « Lisière » — 25 novembre 2026 : interface refaite façon Android 17 / Pixel Music — titre plein cadre, carte de moyenne en dégradé, puces pleines, barre de navigation flottante animée, halos de fond qui dérivent, sections sans décor. Le bouton « Télécharger la mise à jour » télécharge désormais l'APK dans l'app puis ouvre l'installateur Android, et le site garde un contenu statique lisible si son JavaScript ne démarre pas.
@@ -27,4 +28,4 @@ la navigation et au papier — rien de plus.
 
 ## Liste de réserve (noms pas encore utilisés)
 
-Quille, Ralingue.
+Ralingue.

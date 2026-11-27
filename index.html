@@ -8,7 +8,8 @@
     <meta name="google" content="notranslate" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#f3eefb" />
+    <meta name="theme-color" content="#f3eefb" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#241f33" media="(prefers-color-scheme: dark)" />
     <meta
       name="description"
       content="Ardoise — l'application Android hors ligne pour suivre tes notes et ta moyenne Pronote. Télécharge l'APK ici."
@@ -27,9 +28,20 @@
       body {
         margin: 0;
         background: #f3eefb;
-        color: #2b2340;
+        color: #3a2e55;
         font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-        color-scheme: light;
+        color-scheme: light dark;
+      }
+      /* Mêmes teintes que l'application en mode sombre. */
+      @media (prefers-color-scheme: dark) {
+        html,
+        body {
+          background: #241f33;
+          color: #ffffff;
+        }
+        #root:empty::before {
+          color: #dcd5ec;
+        }
       }
       #root:empty::before {
         content: "Chargement d'Ardoise…";
@@ -53,7 +65,7 @@
         <p>
           <a
             href="/Ardoise.apk"
-            style="display: inline-block; padding: 15px 24px; border-radius: 999px; background: #7c5cbf; color: #fff; font-weight: 700; text-decoration: none"
+            style="display: inline-block; padding: 15px 24px; border-radius: 999px; background: #9b7be0; color: #fdfbff; font-weight: 700; text-decoration: none"
           >
             ⬇️ Télécharger Ardoise.apk
           </a>
