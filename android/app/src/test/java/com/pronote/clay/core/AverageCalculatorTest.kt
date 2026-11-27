@@ -77,6 +77,50 @@ class AverageCalculatorTest {
     }
 
     @Test
+    fun `recalcule une moyenne officielle figee apres une nouvelle note`() {
+        // Pronote renvoie encore l'ancienne moyenne alors qu'une note du T1
+        // vient d'arriver : la moyenne reconstruite est la seule a jour.
+        val result = AverageCalculator.resolveGeneralAverage(
+            official = 15.77,
+            subjects = listOf(maths),
+            grades = listOf(grade("a", 16.0)),
+            subjectAverages = listOf(SubjectAverage("maths", 16.0, "T1", AverageSource.OFFICIAL)),
+            previousOfficial = 15.77,
+            gradesChanged = true,
+        )
+        assertEquals(16.0, result!!.first, 0.001)
+        assertTrue(result.second)
+    }
+
+    @Test
+    fun `garde la moyenne officielle quand elle a bouge`() {
+        val result = AverageCalculator.resolveGeneralAverage(
+            official = 15.77,
+            subjects = listOf(maths),
+            grades = listOf(grade("a", 16.0)),
+            subjectAverages = listOf(SubjectAverage("maths", 16.0, "T1", AverageSource.OFFICIAL)),
+            previousOfficial = 15.2,
+            gradesChanged = true,
+        )
+        assertEquals(15.77, result!!.first, 0.001)
+        assertEquals(false, result.second)
+    }
+
+    @Test
+    fun `garde la moyenne officielle quand aucune note n'a change`() {
+        val result = AverageCalculator.resolveGeneralAverage(
+            official = 15.77,
+            subjects = listOf(maths),
+            grades = listOf(grade("a", 16.0)),
+            subjectAverages = listOf(SubjectAverage("maths", 16.0, "T1", AverageSource.OFFICIAL)),
+            previousOfficial = 15.77,
+            gradesChanged = false,
+        )
+        assertEquals(15.77, result!!.first, 0.001)
+        assertEquals(false, result.second)
+    }
+
+    @Test
     fun `recalculates a hidden average from the subject averages`() {
         val averages = listOf(
             SubjectAverage("maths", 16.0, "T2", AverageSource.OFFICIAL),

@@ -196,7 +196,9 @@ class PronoteRepositoryImpl(
             )
         }
 
-        val snapshot = toSnapshot(payload)
+        // L'instantané déjà mémorisé pour CE trimestre : il permet de repérer
+        // une moyenne officielle que Pronote n'a pas encore recalculée.
+        val snapshot = toSnapshot(payload, payload.periodId?.let { local.loadSnapshot(accountId, it) })
         val activePeriod = payload.periodId
         local.saveSnapshot(accountId, snapshot, activePeriod)
         if (activePeriod != null) local.saveSelectedPeriod(accountId, activePeriod)
@@ -306,9 +308,11 @@ class PronoteRepositoryImpl(
      * Remote payload -> local snapshot.
      *
      * The general average is OFFICIAL when Pronote provides one, otherwise it is
-     * CALCULATED locally so a hidden average still shows up.
+     * CALCULATED locally so a hidden average still shows up. [previous] is the
+     * snapshot of the same period from the last sync, used to notice an
+     * official average that Pronote has not recalculated yet.
      */
-    fun toSnapshot(payload: PronoteRawPayload): SchoolSnapshot {
+    fun toSnapshot(payload: PronoteRawPayload, previous: SchoolSnapshot? = null): SchoolSnapshot {
         val student = Mappers.mapStudent(payload.student)
         val subjects = payload.subjects.mapIndexed { index, dto -> Mappers.mapSubject(dto, index) }
 
@@ -338,11 +342,14 @@ class PronoteRepositoryImpl(
             )
         }
 
-        val computed = AverageCalculator.calculateGeneralAverage(
+        val computed = AverageCalculator.resolveGeneralAverage(
             official = payload.generalAverage,
             subjects = subjects,
             grades = grades,
             subjectAverages = remoteAverages,
+            previousOfficial = previous?.generalAverage?.value,
+            gradesChanged = previous != null &&
+                gradeFingerprint(previous.grades) != gradeFingerprint(grades),
         )
 
         val generalAverage = computed?.let { (value, isCalculated) ->
@@ -364,6 +371,12 @@ class PronoteRepositoryImpl(
             fetchedAt = System.currentTimeMillis(),
         )
     }
+
+    /** Une note ajoutée, retirée ou modifiée change cette empreinte. */
+    private fun gradeFingerprint(grades: List<com.pronote.clay.domain.Grade>): Set<String> =
+        grades.map {
+            "${it.id}|${it.value}|${it.maxValue}|${it.coefficient}|${it.countsTowardAverage}"
+        }.toSet()
 
     /** A compact history built from the grades we know about. */
     private fun buildHistory(

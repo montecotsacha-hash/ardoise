@@ -40,16 +40,16 @@ un compte Play public personnel gratuit :
 | Élément                     | Valeur                                                                                     |
 | --------------------------- | ------------------------------------------------------------------------------------------ |
 | `applicationId`             | `com.pronote.clay`                                                                         |
-| Version                     | 1.6.9 « Mâture » (versionCode 22)                                                          |
+| Version                     | 1.6.10 « Nasse » (versionCode 23)                                                          |
 | Android minimum / cible     | API 26 (8.0) / API 35                                                                      |
-| APK signé (site + releases) | `Ardoise.apk` — SHA-256 `7a1a2d9a13092a91552f635569f63e26aa88262828fed084a90ae0b12a1181b8` |
-| Bundle pour magasins        | `Ardoise.aab` — SHA-256 `f17d4728b89c0d750c2028b0430411c31de8f3a998563647b05d66bb94b30e8f` |
+| APK signé (site + releases) | `Ardoise.apk` — SHA-256 `94a9e8fd4670595242c9c7d2b42ef0ea4a3201278834d4a05f442b138dcb1d60` |
+| Bundle pour magasins        | `Ardoise.aab` — SHA-256 `d9e272ae1f55d404897e5cebc7eba74c74ce946e4e79638172ea261844d730bb` |
 | Clé d'upload                | `android/app/upload-keystore.jks` (RSA 4096, valable 30 ans, créée le 14/11/2026), hors git |
 | Mots de passe de la clé     | `android/app/keystore.properties`, hors git                                                |
 | Captures d'écran            | `screenshots/app/` — captures réelles de l'app sur émulateur 720×1560 (Play, magasins, Github) |
 | Page de téléchargement      | <https://ardoise.freebuff.page>                                                            |
 
-Note : la page publique sert déjà cette version — `/version.json` annonce `versionCode` 22
+Note : la page publique sert déjà cette version — `/version.json` annonce `versionCode` 23
 et l'empreinte du fichier téléchargé est identique à celle de la release.
 
 ## Nommage des versions

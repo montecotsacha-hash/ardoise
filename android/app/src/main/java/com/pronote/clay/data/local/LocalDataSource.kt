@@ -23,8 +23,8 @@ class LocalDataSource(context: Context) {
 
     private val prefs = context.getSharedPreferences("pronote_school_cache", Context.MODE_PRIVATE)
 
-    fun loadSnapshot(accountId: String): SchoolSnapshot? {
-        val raw = prefs.getString(snapshotKey(accountId), null) ?: return null
+    fun loadSnapshot(accountId: String, periodId: String? = null): SchoolSnapshot? {
+        val raw = prefs.getString(snapshotKey(accountId, periodId), null) ?: return null
         return try {
             healGeneralAverage(decodeSnapshot(JSONObject(raw)))
         } catch (error: Throwable) {
@@ -72,7 +72,9 @@ class LocalDataSource(context: Context) {
                     .putString(snapshotKey(accountId, periodId), encodeSnapshot(snapshot).toString())
                     .apply()
             }
-        } catch (error: Throwable) {
+        }
+
+         catch (error: Throwable) {
             Logger.warn("Local snapshot write failed")
         }
     }

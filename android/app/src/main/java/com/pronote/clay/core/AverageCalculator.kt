@@ -65,9 +65,43 @@ object AverageCalculator {
         subjects: List<Subject>,
         grades: List<Grade>,
         subjectAverages: List<SubjectAverage>,
+    ): Pair<Double, Boolean>? =
+        resolveGeneralAverage(official, subjects, grades, subjectAverages)
+
+    /**
+     * Même calcul, mais en le comparant à l'affichage de la synchro précédente.
+     *
+     * Pronote recalcule `moyGenerale` avec un temps de retard : une note
+     * ajoutée après coup au 1er trimestre peut arriver avant que la moyenne
+     * officielle ne suive, et l'app resterait alors figée sur l'ancienne valeur.
+     * Le signal est précis : les notes ont changé, la moyenne officielle est
+     * identique à la précédente, alors que la moyenne reconstruite à partir des
+     * moyennes par matière (celles de Pronote) a bougé. Dans ce cas seulement,
+     * la valeur recalculée est la seule à jour ; elle s'affiche en « calculée »
+     * jusqu'à ce que le serveur rattrape.
+     */
+    fun resolveGeneralAverage(
+        official: Double?,
+        subjects: List<Subject>,
+        grades: List<Grade>,
+        subjectAverages: List<SubjectAverage>,
+        previousOfficial: Double? = null,
+        gradesChanged: Boolean = false,
     ): Pair<Double, Boolean>? {
-        // 1. Trust the official value when Pronote gives one.
-        if (official != null && !official.isNaN()) return round2(official) to false
+        // 1. Une moyenne officielle a toujours la priorité, sauf si elle est
+        //    restée figée alors que les notes, elles, ont changé.
+        if (official != null && !official.isNaN()) {
+            val rounded = round2(official)
+            val frozen = gradesChanged &&
+                previousOfficial != null &&
+                round2(previousOfficial) == rounded
+            val recalculated = generalAverageFromSubjects(subjects, subjectAverages)
+                ?: generalAverageFromGrades(grades)
+            if (frozen && recalculated != null && recalculated != rounded) {
+                return recalculated to true
+            }
+            return rounded to false
+        }
 
         // 2. Rebuild from the subject averages.
         generalAverageFromSubjects(subjects, subjectAverages)?.let { return it to true }

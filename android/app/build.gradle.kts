@@ -14,8 +14,8 @@ android {
         applicationId = "com.pronote.clay"
         minSdk = 26
         targetSdk = 35
-        versionCode = 22
-        versionName = "1.6.9"
+        versionCode = 23
+        versionName = "1.6.10"
     }
 
     // Publication (Google Play et site) : la release est signée avec la clé
