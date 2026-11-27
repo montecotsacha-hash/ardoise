@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { VERSION } from "./version";
 
 /**
  * The download deliverable: the APK served by the site must exist, be a valid
@@ -15,10 +16,24 @@ const GRADLE_APK = join(
   ROOT,
   "android/app/build/outputs/apk/release/app-release.apk",
 );
+const GRADLE_METADATA = join(
+  ROOT,
+  "android/app/build/outputs/apk/release/output-metadata.json",
+);
+const GRADLE_SCRIPT = join(ROOT, "android/app/build.gradle.kts");
 const APK_PATH = join(ROOT, "public", "Ardoise.apk");
 
 const sha256 = (path: string) =>
   createHash("sha256").update(readFileSync(path)).digest("hex");
+
+/** versionName / versionCode déclarés pour le build Android. */
+const declaredVersion = () => {
+  const gradle = readFileSync(GRADLE_SCRIPT, "utf8");
+  return {
+    versionName: gradle.match(/versionName\s*=\s*"([^"]+)"/)?.[1],
+    versionCode: Number(gradle.match(/versionCode\s*=\s*(\d+)/)?.[1]),
+  };
+};
 
 describe("APK Ardoise téléchargeable depuis le site", () => {
   it("est présent dans public/ et pèse plus d'un mégaoctet", () => {
@@ -49,16 +64,32 @@ describe("APK Ardoise téléchargeable depuis le site", () => {
     expect(sha256(APK_PATH)).toBe(documented);
   });
 
-  // La sortie Gradle n'est plus versionnée : quand elle existe sur le poste,
-  // elle doit être identique à l'APK servi ; sinon il n'y a rien à comparer et
-  // la vérification d'empreinte ci-dessus fait foi.
+  // La sortie Gradle n'est plus versionnée. Un rebuild local n'est jamais
+  // identique octet pour octet (horodatages, ordre des entrées) : comparer les
+  // empreintes signalait donc une fausse régression. On compare ce qui doit
+  // être stable entre deux builds : versionName, versionCode et taille.
   it.skipIf(!existsSync(GRADLE_APK))(
-    "est le build release courant, pas une copie obsolète",
+    "a la même version et la même taille que le build release local",
     () => {
-      expect(sha256(APK_PATH)).toBe(sha256(GRADLE_APK));
+      const local = JSON.parse(readFileSync(GRADLE_METADATA, "utf8"))
+        .elements?.[0];
+      const declared = declaredVersion();
+
+      expect(declared.versionName).toBe(VERSION);
+      expect(declared.versionCode).toBeGreaterThan(0);
+      expect(local.versionName).toBe(declared.versionName);
+      expect(local.versionCode).toBe(declared.versionCode);
+      expect(statSync(GRADLE_APK).size).toBe(statSync(APK_PATH).size);
     },
   );
 
+  // Vérifiable partout, sans toolchain Android : la version déclarée pour le
+  // build Android est celle publiée par le site (src/version.ts).
+  it("est construit avec la version publiée par le site", () => {
+    const declared = declaredVersion();
+    expect(declared.versionName).toBe(VERSION);
+    expect(declared.versionCode).toBeGreaterThan(0);
+  });
   it("n'existe qu'en un seul exemplaire dans le dépôt", () => {
     expect(existsSync(join(ROOT, "Ardoise.apk"))).toBe(false);
     expect(existsSync(join(ROOT, "Pronote.apk"))).toBe(false);
