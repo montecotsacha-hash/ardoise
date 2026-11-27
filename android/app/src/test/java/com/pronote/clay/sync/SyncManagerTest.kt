@@ -55,6 +55,12 @@ class SyncManagerTest {
         var syncCount = 0
         var restoreCount = 0
 
+        /** Période que le dépôt retrouve comme sélectionnée par l'utilisateur. */
+        var selectedPeriod: String? = null
+
+        /** Période réellement demandée au connecteur au dernier sync. */
+        var lastSyncPeriod: String? = null
+
         /** How many leading syncs fail with [failure] before one succeeds. */
         var failuresBeforeSuccess = if (failure != null) Int.MAX_VALUE else 0
 
@@ -77,10 +83,11 @@ class SyncManagerTest {
 
         override fun availablePeriods(accountId: String) = emptyList<com.pronote.clay.domain.PeriodOption>()
 
-        override fun selectedPeriodId(accountId: String): String? = null
+        override fun selectedPeriodId(accountId: String): String? = selectedPeriod
 
         override suspend fun sync(accountId: String, periodId: String?): PronoteResult<SchoolSnapshot> {
             syncCount++
+            lastSyncPeriod = periodId
             if (failure != null && failuresBeforeSuccess > 0) {
                 failuresBeforeSuccess--
                 return PronoteResult.Failure(failure)
@@ -224,6 +231,34 @@ class SyncManagerTest {
 
         assertTrue(forced.ok)
         assertEquals(2, repository.syncCount)
+    }
+
+    @Test
+    fun `syncs the period shown by the user, not the server default`() = runBlocking {
+        // Une note ajoutée après coup au 1er trimestre doit rafraîchir le 1er
+        // trimestre, même quand le serveur considère le 2e comme courant.
+        val repository = FakeRepository(snapshot(grade("a"))).apply {
+            selectedPeriod = "periode-t1"
+        }
+        val manager = SyncManager(repository) { true }
+
+        val result = manager.sync("acct")
+
+        assertTrue(result.ok)
+        assertEquals("periode-t1", repository.lastSyncPeriod)
+    }
+
+    @Test
+    fun `keeps syncing the selected period after a silent reconnect`() = runBlocking {
+        val repository = FakeRepository(snapshot(grade("a")), PronoteError.SessionExpired).apply {
+            failuresBeforeSuccess = 1
+            restoredSession = restorableSession()
+            selectedPeriod = "periode-t1"
+        }
+        val manager = SyncManager(repository) { true }
+
+        assertTrue(manager.sync("acct").ok)
+        assertEquals("periode-t1", repository.lastSyncPeriod)
     }
 
     @Test

@@ -87,8 +87,13 @@ class SyncManager(
             )
         }
 
+        // Le trimestre affiché, pas celui du serveur : sinon une note ajoutée
+        // après coup au T1 ne rafraîchissait que le T2 (trimestre courant),
+        // et la moyenne du T1 ne bougeait jamais.
+        val periodId = repository.selectedPeriodId(accountId)
+
         Logger.info("Sync started")
-        var result = repository.sync(accountId)
+        var result = repository.sync(accountId, periodId)
 
         // Une session Pronote mourante se rétablit toute seule : on retente une
         // fois après une reconnexion silencieuse, et on n'alerte l'utilisateur
@@ -102,7 +107,7 @@ class SyncManager(
                 failure.error is PronoteError.InvalidCredentials)
         if (recoverable && repository.refreshSession(accountId) != null) {
             Logger.info("Session expirée : reconnexion puis nouvelle tentative")
-            result = repository.sync(accountId)
+            result = repository.sync(accountId, periodId)
         }
 
         return when (result) {
