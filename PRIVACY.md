@@ -1,6 +1,6 @@
 # Politique de confidentialité — Ardoise
 
-Dernière mise à jour : 18 octobre 2026.
+Dernière mise à jour : 28 novembre 2026.
 
 Ardoise est une application Android indépendante, non affiliée à Index-Éducation.
 Elle permet de consulter les notes, moyennes et l'emploi du temps d'un compte
@@ -17,6 +17,14 @@ donnée d'utilisateur.
 
 ## Données transmises
 
+- **Recherche de l'établissement** : quand l'utilisateur écrit le nom de sa
+  ville sur l'écran de connexion, ce seul nom de ville est envoyé à la Base
+  Adresse Nationale (`api-adresse.data.gouv.fr`) pour obtenir ses coordonnées,
+  puis ces coordonnées à l'annuaire public d'Index Éducation
+  (`index-education.com`), qui renvoie la liste des établissements PRONOTE
+  proches avec leur nom et leur adresse. Ces deux requêtes ne contiennent ni
+  identifiant, ni donnée scolaire, ni identifiant d'appareil. Saisir l'adresse
+  à la main n'envoie rien à ces deux services.
 - **Adresse de l'établissement et identifiants Pronote** : transmis uniquement au
   serveur Pronote de l'établissement saisi par l'utilisateur, pour ouvrir la
   session. C'est le seul destinataire.
@@ -49,10 +57,28 @@ Rien n'est sauvegardé dans le cloud : les sauvegardes Android sont désactivée
 
 | Autorisation           | Usage                                                                                                         |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `INTERNET`             | joindre le serveur Pronote de l'établissement et le site de distribution (vérification de mise à jour)        |
+| `INTERNET`             | joindre le serveur Pronote de l'établissement, l'annuaire des établissements et le site de distribution (mise à jour) |
 | `ACCESS_NETWORK_STATE` | savoir si l'appareil est connecté (mode hors ligne, synchronisation)                                          |
 | `POST_NOTIFICATIONS`   | notifications **locales** après une synchronisation (optionnel)                                               |
 | `USE_BIOMETRIC`        | verrouillage de l'application (optionnel : empreinte, visage ou code de l'appareil) — aucune donnée transmise |
+
+## Diagnostic d'adresse et QR code
+
+Le bouton « Vérifier cette adresse » lit la page publique de l'établissement
+(la même page que le connecteur, sans identifiant ni mot de passe) pour dire si
+l'adresse existe, si le serveur est en maintenance ou si l'IP de l'appareil est
+temporairement bloquée. Le bouton « Scanner le QR code » ouvre l'interface de
+scan de Google Code Scanner, fournie par les services Google Play sur
+l'appareil : l'image scannée n'est pas envoyée à Google, seule l'adresse PRONOTE
+qu'elle contient est reprise dans le champ d'adresse.
+
+## Gestionnaire de mots de passe Android
+
+L'écran de connexion déclare son champ d'identifiant et son champ de mot de
+passe comme tels auprès d'Android. Le gestionnaire de mots de passe de
+l'appareil peut donc proposer de remplir le formulaire ou d'enregistrer les
+identifiants. Cette proposition vient d'Android et reste sur l'appareil :
+l'application ne lit ni ne transmet le contenu du gestionnaire.
 
 ## Enfants et données scolaires
 

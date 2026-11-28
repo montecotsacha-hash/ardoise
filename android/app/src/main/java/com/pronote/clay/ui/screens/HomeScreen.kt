@@ -71,6 +71,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pronote.clay.core.AverageCalculator
+import com.pronote.clay.core.GradeTarget
 import com.pronote.clay.domain.Grade
 import com.pronote.clay.domain.Subject
 import com.pronote.clay.ui.components.ClayButton
@@ -188,6 +189,7 @@ fun HomeScreen(
         item { Spacer(Modifier.height(ClayDimens.SectionGap)) }
 
         homeHistorySection(history)
+        homeTargetSection(average?.value, snapshot)
         homeSubjectsSection(subjects, periodEmptyHint)
         homeGradesSection(snapshot, periodEmptyHint) { selectedGrade = it }
     }
@@ -688,6 +690,115 @@ private fun HistoryChart(history: List<com.pronote.clay.domain.HistoryPoint>, pe
             }
         }
     }
+}
+
+/**
+ * « Quelle note me faut-il ? »
+ *
+ * Le calcul ne sort pas de l'appareil : il part de la moyenne affichée et du
+ * poids des notes déjà reçues, puis répond sur le prochain contrôle.
+ */
+private fun LazyListScope.homeTargetSection(
+    average: Double?,
+    snapshot: com.pronote.clay.domain.SchoolSnapshot?,
+) {
+    if (average == null || snapshot == null) return
+    val weight = GradeTarget.weightOf(
+        snapshot.grades.filter { it.countsTowardAverage }.map { it.coefficient },
+    )
+    if (weight <= 0.0) return
+
+    item {
+        ClayReveal(index = 3) {
+            Column {
+                TargetCard(average = average, weight = weight)
+                Spacer(Modifier.height(ClayDimens.SectionGap))
+            }
+        }
+    }
+}
+
+@Composable
+private fun TargetCard(average: Double, weight: Double) {
+    val targets = remember { listOf(10.0, 12.0, 14.0, 16.0, 18.0) }
+    // La cible par défaut est la plus proche de la moyenne actuelle : on simule
+    // rarement un objectif à dix points de là.
+    var target by remember(average) {
+        mutableStateOf(targets.minByOrNull { kotlin.math.abs(it - average) } ?: 14.0)
+    }
+    var coefficient by remember { mutableStateOf(1.0) }
+    val required = GradeTarget.required(average, weight, coefficient, target)
+
+    ClaySurface(
+        modifier = Modifier.fillMaxWidth(),
+        depth = 6.dp,
+        shape = RoundedCornerShape(24.dp),
+    ) {
+        Column(Modifier.padding(18.dp)) {
+            Text(
+                "Objectif de moyenne",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Quelle note te faut-il au prochain contrôle ?",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                targets.forEach { value ->
+                    ClayPill(
+                        text = AverageCalculator.formatAverage(value),
+                        tint = MaterialTheme.colorScheme.primary,
+                        filled = value == target,
+                        onClick = { target = value },
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+            Text(
+                "Coefficient du contrôle",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(1.0, 2.0, 3.0).forEach { value ->
+                    ClayPill(
+                        text = "× ${value.toInt()}",
+                        tint = MaterialTheme.colorScheme.primary,
+                        filled = value == coefficient,
+                        onClick = { coefficient = value },
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(14.dp))
+            Text(
+                targetAnswer(required, target, coefficient),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Medium,
+            )
+        }
+    }
+}
+
+private fun targetAnswer(required: Double?, target: Double, coefficient: Double): String = when {
+    required == null -> "Ajoute une note pour que l'app puisse calculer."
+    GradeTarget.isAlreadyReached(required) ->
+        "Objectif déjà atteint : même un 0 ne te ferait pas passer sous " +
+            "${AverageCalculator.formatAverage(target)}."
+    !GradeTarget.isReachable(required) ->
+        "Il faudrait ${AverageCalculator.formatAverage(required)}/20 : ce n'est plus " +
+            "atteignable avec un seul contrôle de coefficient ${coefficient.toInt()}."
+    else -> "Il te faut ${AverageCalculator.formatAverage(required)}/20 à ce contrôle."
 }
 
 @Composable

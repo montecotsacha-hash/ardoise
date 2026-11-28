@@ -114,13 +114,45 @@ class DeviceScreenCaptureTest {
         check(file.length() > 0) { "Capture vide : $name" }
     }
 
+    /**
+     * Capture d'une boîte de dialogue.
+     *
+     * Compose compose les `Dialog` dans une fenêtre à part : elle n'apparaît
+     * donc pas dans le decorView de l'Activity et [capture] ne la verrait pas.
+     */
+    private fun captureDialog(name: String) {
+        outputDir.mkdirs()
+        val file = File(outputDir, name)
+        composeRule.runOnUiThread {
+            val decor = org.robolectric.shadows.ShadowDialog.getLatestDialog()
+                ?.window?.decorView ?: return@runOnUiThread
+            val width = decor.width.takeIf { it > 0 } ?: DECOR_WIDTH_PX
+            val height = decor.height.takeIf { it > 0 } ?: DECOR_HEIGHT_PX
+            if (decor.width == 0) {
+                decor.measure(
+                    View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY),
+                )
+                decor.layout(0, 0, width, height)
+            }
+            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+            decor.draw(Canvas(bitmap))
+            FileOutputStream(file).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        }
+    }
+
     @Test
     fun `capture connexion tableau de bord menu et emploi du temps`() {
         advance()
         capture("01-connexion.png")
 
+        composeRule.onNodeWithText("Choisir mon établissement").performClick()
+        advance()
+        captureDialog("01b-selection-etablissement.png")
         composeRule.onNodeWithText("Adresse Pronote")
             .performTextInput("https://demo.index-education.net/pronote/")
+        composeRule.onNodeWithText("Fermer").performClick()
+        advance()
         composeRule.onNodeWithText("Identifiant").performTextInput("eleve")
         composeRule.onNodeWithText("Mot de passe").performTextInput("demo123")
         composeRule.onNodeWithText("Se connecter").performClick()

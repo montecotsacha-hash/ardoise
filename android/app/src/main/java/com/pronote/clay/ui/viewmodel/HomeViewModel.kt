@@ -5,6 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.pronote.clay.AppContainer
 import com.pronote.clay.core.PronoteError
 import com.pronote.clay.core.PronoteResult
+import com.pronote.clay.core.SchoolSearch
+import com.pronote.clay.core.SchoolSuggestion
+import com.pronote.clay.data.remote.Diagnosis
 import com.pronote.clay.domain.AverageSummary
 import com.pronote.clay.domain.Preferences
 import com.pronote.clay.domain.SchoolSnapshot
@@ -75,6 +78,21 @@ data class LoginDraft(
     val password: String = "",
 )
 
+/**
+ * État du sélecteur d'établissement (recherche par ville).
+ *
+ * [searched] distingue « rien encore demandé » de « cherché, aucun résultat » :
+ * sans lui, un élève d'une ville sans PRONOTE lirait un écran vide sans savoir
+ * si sa recherche a seulement été lancée.
+ */
+data class SchoolPickerState(
+    val query: String = "",
+    val searching: Boolean = false,
+    val searched: Boolean = false,
+    val results: List<SchoolSuggestion> = emptyList(),
+    val error: String? = null,
+)
+
 /** Transient events the UI must act on (notifications, toasts). */
 sealed interface HomeEvent {
     data class Notify(val notification: PendingNotification) : HomeEvent
@@ -112,6 +130,85 @@ class HomeViewModel(
 
     private val _loginDraft = MutableStateFlow(LoginDraft())
     val loginDraft: StateFlow<LoginDraft> = _loginDraft.asStateFlow()
+
+    // ---- annuaire des établissements ---------------------------------------
+
+    /** Établissement choisi dans la liste : son nom s'affiche à la connexion. */
+    private val _pickedSchool = MutableStateFlow<SchoolSuggestion?>(null)
+    val pickedSchool: StateFlow<SchoolSuggestion?> = _pickedSchool.asStateFlow()
+
+    private val _schoolPicker = MutableStateFlow(SchoolPickerState())
+    val schoolPicker: StateFlow<SchoolPickerState> = _schoolPicker.asStateFlow()
+
+    /** Résultat du diagnostic d'adresse, ou null tant qu'on n'a rien demandé. */
+    private val _diagnosis = MutableStateFlow<Diagnosis?>(null)
+    val diagnosis: StateFlow<Diagnosis?> = _diagnosis.asStateFlow()
+
+    private val _diagnosing = MutableStateFlow(false)
+    val diagnosing: StateFlow<Boolean> = _diagnosing.asStateFlow()
+
+    /**
+     * Vérifie qu'une adresse donne bien sur un PRONOTE joignable.
+     *
+     * C'est la réponse à « je ne comprends pas pourquoi ça ne marche pas » :
+     * une seule requête, aucun identifiant, et une cause nommée.
+     */
+    fun diagnoseConnection(url: String) {
+        if (_diagnosing.value || url.isBlank()) return
+        _diagnosing.value = true
+        _diagnosis.value = null
+        viewModelScope.launch {
+            _diagnosis.value = container.connectionDoctor.check(url)
+            _diagnosing.value = false
+        }
+    }
+
+    fun clearDiagnosis() {
+        _diagnosis.value = null
+    }
+
+    /**
+     * Cherche les établissements proches de la ville saisie.
+     *
+     * Le nom de la ville part seul vers la Base Adresse Nationale puis vers
+     * l'annuaire PRONOTE : aucun identifiant, aucune donnée personnelle.
+     */
+    fun searchSchools() {
+        val query = SchoolSearch.normalizeQuery(_schoolPicker.value.query)
+        if (query.length < SchoolSearch.MIN_QUERY_LENGTH || _schoolPicker.value.searching) return
+        // Une ville déjà cherchée s'affiche tout de suite, pendant que la
+        // requête vérifie s'il y a du nouveau.
+        _schoolPicker.value = SchoolPickerState(
+            query = query,
+            searching = true,
+            results = container.schoolDirectory.cached(query),
+        )
+        viewModelScope.launch {
+            val result = container.schoolDirectory.search(query)
+            _schoolPicker.value = when (result) {
+                is PronoteResult.Success -> SchoolPickerState(
+                    query = query,
+                    searched = true,
+                    results = result.value,
+                    error = if (result.value.isEmpty()) {
+                        "Aucun établissement PRONOTE trouvé autour de « $query »."
+                    } else {
+                        null
+                    },
+                )
+                is PronoteResult.Failure -> SchoolPickerState(
+                    query = query,
+                    searched = true,
+                    error = result.error.userMessage,
+                )
+            }
+        }
+    }
+
+    fun pickSchool(school: SchoolSuggestion) {
+        _pickedSchool.value = school
+        _loginDraft.value = _loginDraft.value.copy(schoolUrl = school.url)
+    }
 
     // ---- périodes (trimestres) --------------------------------------------
 
@@ -183,8 +280,15 @@ class HomeViewModel(
         }
     }
 
+    fun updateSchoolQuery(value: String) {
+        _schoolPicker.value = _schoolPicker.value.copy(query = value)
+    }
+
     fun updateLoginSchoolUrl(value: String) {
         _loginDraft.value = _loginDraft.value.copy(schoolUrl = value)
+        // Une adresse tapée à la main remplace l'établissement choisi : garder
+        // son nom affiché ferait croire que la connexion vise cet établissement.
+        if (_pickedSchool.value?.url != value.trim()) _pickedSchool.value = null
     }
 
     fun updateLoginUsername(value: String) {
@@ -465,6 +569,8 @@ class HomeViewModel(
             container.setActiveAccount(null)
             sessionValid = false
             refreshPeriods(null)
+            _pickedSchool.value = null
+            _schoolPicker.value = SchoolPickerState()
             _state.value = HomeUiState.Unauthenticated
             onDone()
         }

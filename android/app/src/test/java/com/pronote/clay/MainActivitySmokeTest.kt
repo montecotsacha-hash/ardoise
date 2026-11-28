@@ -22,7 +22,7 @@ class MainActivitySmokeTest {
     fun `the app opens on the login form instead of a blank screen`() {
         composeRule.onNodeWithText("Ardoise").assertExists()
         composeRule.onNodeWithText("Connexion").assertExists()
-        composeRule.onNodeWithText("Adresse Pronote").assertExists()
+        composeRule.onNodeWithText("Choisir mon établissement").assertExists()
         composeRule.onNodeWithText("Identifiant").assertExists()
         composeRule.onNodeWithText("Mot de passe").assertExists()
         composeRule.onNodeWithText("Se connecter").assertExists()
@@ -46,7 +46,7 @@ class MainActivitySmokeTest {
     fun `the connection is described as direct and the ENT limitation is clear`() {
         composeRule.onNodeWithText("Connexion directe à Pronote").assertExists()
         composeRule.onNodeWithText(
-            "Saisis l'adresse de ton espace élève, puis tes identifiants Pronote. " +
+            "Tu choisis ton établissement, puis tes identifiants Pronote. " +
                 "Ils sont transmis directement au serveur de ton établissement, pas à un serveur Ardoise. " +
                 "Seul le jeton de session est conservé chiffré sur cet appareil. " +
                 "Les connexions via un ENT ne sont pas prises en charge.",

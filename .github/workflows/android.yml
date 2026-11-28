@@ -1,0 +1,73 @@
+name: Android
+
+# Vérification de chaque push : sans ce workflow, une régression de compilation
+# ou un test cassé ne se découvrait qu'au moment de publier une release.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "android/**"
+      - ".github/workflows/android.yml"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Compile, teste et rend les écrans
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      TC_ROOT: ${{ github.workspace }}/.android-tc
+      JAVA_HOME: ${{ github.workspace }}/.android-tc/jdk
+      ANDROID_HOME: ${{ github.workspace }}/.android-tc/sdk
+      ANDROID_SDK_ROOT: ${{ github.workspace }}/.android-tc/sdk
+    steps:
+      - uses: actions/checkout@v4
+
+      # Même toolchain que la release et que la machine de développement.
+      - name: Outils Android (JDK 17, Gradle, SDK 35)
+        run: bash scripts/setup-android-toolchain.sh
+
+      - name: Retirer le local.properties de la machine de développement
+        run: rm -f android/local.properties
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/notifications
+          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle.kts', 'android/gradle.properties') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      # Signé avec la clé de debug ici : ce build vérifie que la variante release
+      # compile et passe les tests, il ne publie rien.
+      - name: Tests unitaires et rendu des écrans (Robolectric)
+        run: ./.android-tc/gradle/bin/gradle -p android testDebugUnitTest --no-daemon
+
+      - name: Compilation de la variante release
+        run: ./.android-tc/gradle/bin/gradle -p android assembleRelease --no-daemon
+
+      # Les captures rendues par DeviceScreenCaptureTest servent de référence
+      # visuelle : on les garde même quand le job échoue après les tests.
+      - name: Captures d'écran
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: captures
+          path: android/app/build/screenshots/*.png
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Rapports de tests
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapports-tests
+          path: android/app/build/reports/tests/**
+          if-no-files-found: ignore
+          retention-days: 14

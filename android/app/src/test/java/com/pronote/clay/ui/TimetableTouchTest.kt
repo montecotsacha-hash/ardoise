@@ -76,8 +76,13 @@ class TimetableTouchTest {
     /** Se connecte avec le connecteur de démonstration et ouvre l'emploi du temps. */
     private fun openTimetable() {
         advance()
+        // L'adresse se saisit désormais dans le sélecteur d'établissement.
+        composeRule.onNodeWithText("Choisir mon établissement").performClick()
+        advance()
         composeRule.onNodeWithText("Adresse Pronote")
             .performTextInput("https://demo.index-education.net/pronote/")
+        composeRule.onNodeWithText("Fermer").performClick()
+        advance()
         composeRule.onNodeWithText("Identifiant").performTextInput("eleve")
         composeRule.onNodeWithText("Mot de passe").performTextInput("demo123")
         composeRule.onNodeWithText("Se connecter").performClick()

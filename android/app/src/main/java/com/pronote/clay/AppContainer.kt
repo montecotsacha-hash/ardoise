@@ -12,6 +12,7 @@ import com.pronote.clay.data.local.PreferencesStore
 import com.pronote.clay.data.remote.PronoteDirectDataSource
 import com.pronote.clay.data.remote.PronoteCompatibilityLayer
 import com.pronote.clay.data.remote.PronoteDataSource
+import com.pronote.clay.data.remote.SchoolDirectory
 import com.pronote.clay.data.remote.UpdateChecker
 import com.pronote.clay.data.security.SecureCredentialsManager
 import com.pronote.clay.domain.CalculateGeneralAverageUseCase
@@ -77,6 +78,20 @@ class AppContainer(context: Context) {
         }
 
     val networkMonitor = NetworkMonitor(appContext)
+
+    /**
+     * Annuaire des établissements (recherche par ville) : interrogé depuis
+     * l'appareil, sans passer par un serveur Ardoise.
+     */
+    val schoolDirectory = SchoolDirectory(
+        // Les dernières recherches survivent à la fermeture : une ville déjà
+        // cherchée se rouvre instantanément, même sans réseau.
+        cacheFile = java.io.File(appContext.filesDir, "schools-cache.json"),
+        online = { networkMonitor.isOnline() },
+    )
+
+    /** Diagnostic « ça ne se connecte pas » (une simple lecture de page). */
+    val connectionDoctor = com.pronote.clay.data.remote.ConnectionDoctor()
 
     private val packageInfo = appContext.packageManager.getPackageInfo(appContext.packageName, 0)
 

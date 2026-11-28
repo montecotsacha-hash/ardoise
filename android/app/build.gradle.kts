@@ -83,7 +83,9 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.6")
     implementation("androidx.activity:activity-compose:1.9.2")
 
-    implementation(platform("androidx.compose:compose-bom:2024.10.01"))
+    // Compose 1.8+ : indispensable pour l'autofill sémantique (ContentType),
+    // qui laisse le gestionnaire de mots de passe Android remplir le formulaire.
+    implementation(platform("androidx.compose:compose-bom:2025.04.01"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
@@ -95,6 +97,10 @@ dependencies {
 
     // Periodic background synchronisation.
     implementation("androidx.work:work-runtime-ktx:2.9.1")
+
+    // Scan du QR code PRONOTE (« Code à flasher ») : l'interface de scan est
+    // fournie par Google Code Scanner, sans permission caméra à demander.
+    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 

@@ -8,6 +8,7 @@ import android.os.Build
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -35,6 +36,7 @@ import com.pronote.clay.ui.theme.frosted
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -51,6 +53,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
@@ -121,10 +124,14 @@ fun ClaySurface(
     // A gentle squish on press keeps the clay feeling tactile without being showy.
     val scale by animateFloatAsState(if (pressed) 0.98f else 1f, label = "clay-press")
 
-    // Hosted surface: an opaque SurfaceContainer tone with a hairline outline.
-    // Glass is reserved for chrome, so a card never turns translucent.
+    // Hosted surface: a tone clearly separated from the canvas, with a hairline
+    // outline. Les cartes reprenaient le ton « surfaceContainerLow », presque
+    // identique au fond de l'écran : les briques de notes et de moyennes se
+    // voyaient à peine. La teinte dérive maintenant du primaire du thème, donc
+    // elle suit aussi Material You.
     val scheme = MaterialTheme.colorScheme
-    val container = tint ?: scheme.surfaceContainerLow
+    val dark = isSystemInDarkTheme()
+    val container = tint ?: cardContainer(scheme, dark)
     Box(
         modifier = modifier
             .scale(scale)
@@ -140,6 +147,7 @@ fun ClaySurface(
             )
             .clip(shape)
             .background(container)
+            .border(1.dp, cardOutline(scheme, dark), shape)
             .then(
                 if (onClick != null) {
                     Modifier.clickable(
@@ -162,6 +170,23 @@ fun ClaySurface(
 
 private fun androidx.compose.ui.graphics.Color.takeOrElse(fallback: androidx.compose.ui.graphics.Color) =
     if (this == androidx.compose.ui.graphics.Color.Unspecified) fallback else this
+
+/**
+ * Fond d'une carte : nettement plus soutenu que le fond de l'écran.
+ *
+ * Un mélange du primaire dans la surface donne une brique teintée, lisible sur
+ * le fond clair comme sur le fond sombre, sans dépendre d'un code couleur fixe.
+ */
+private fun cardContainer(scheme: ColorScheme, dark: Boolean): Color =
+    if (dark) {
+        scheme.surfaceContainerHigh
+    } else {
+        scheme.primary.copy(alpha = 0.30f).compositeOver(scheme.surface)
+    }
+
+/** Filet de contour : il dessine l'arête de la brique même en mode sombre. */
+private fun cardOutline(scheme: ColorScheme, dark: Boolean): Color =
+    if (dark) Color.White.copy(alpha = 0.10f) else scheme.outline.copy(alpha = 0.35f)
 
 /**
  * Small pastel clay pill — badges, source labels and, when [onClick] is given,
