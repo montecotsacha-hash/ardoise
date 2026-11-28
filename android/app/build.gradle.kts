@@ -101,6 +101,11 @@ dependencies {
     // Scan du QR code PRONOTE (« Code à flasher ») : l'interface de scan est
     // fournie par Google Code Scanner, sans permission caméra à demander.
     implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
+    // Code Scanner tire une version ancienne de `androidx.fragment`, qui
+    // redescendait sous 1.3.0 : `registerForActivityResult` devient alors une
+    // erreur fatale de lint en release. On fixe donc le plancher exigé par
+    // l'API ActivityResult plutôt que de masquer l'avertissement.
+    implementation("androidx.fragment:fragment-ktx:1.8.5")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
