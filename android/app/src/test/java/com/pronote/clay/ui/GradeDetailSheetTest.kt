@@ -3,14 +3,14 @@ package com.pronote.clay.ui
 import android.os.Looper
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.filterToOne
+import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
@@ -78,16 +78,33 @@ class GradeDetailSheetTest {
         advance()
     }
 
+    /**
+     * Le tableau de bord compose tous ses blocs d'un coup (cinq blocs mesurés
+     * une fois, pas une liste paresseuse) : la ligne de note existe donc dans
+     * l'arbre même hors de l'écran. On descend donc au doigt (un
+     * `performScrollTo` attendrait des frames que l'horloge manuelle ne donne
+     * pas), en visant le conteneur vertical — l'accueil contient aussi des
+     * rangées qui défilent horizontalement.
+     */
+    private fun bringGradesOnScreen() {
+        val dashboard = {
+            composeRule.onAllNodes(hasScrollAction())
+                .filterToOne(hasAnyDescendant(hasText("Bonjour Alex")))
+        }
+        repeat(8) {
+            val row = composeRule.onAllNodesWithText("Contrôle fonctions")
+                .filterToOne(hasClickAction())
+                .fetchSemanticsNode()
+            val y = row.positionInRoot.y
+            if (y > 0f && y < 1_900f) return
+            dashboard().performTouchInput { swipeUp() }
+            advance(400)
+        }
+    }
+
     /** Descend le tableau de bord jusqu'à la liste des notes, comme un doigt. */
     private fun openFirstGrade() {
-        repeat(10) {
-            val found = composeRule.onAllNodesWithText("Contrôle fonctions")
-                .fetchSemanticsNodes()
-                .isNotEmpty()
-            if (found) return@repeat
-            composeRule.onAllNodes(hasScrollAction()).onFirst().performTouchInput { swipeUp() }
-            advance()
-        }
+        bringGradesOnScreen()
         // Le texte existe deux fois (la ligne fusionnée et son libellé) : on
         // touche la ligne qui porte réellement le geste.
         composeRule.onAllNodesWithText("Contrôle fonctions")
@@ -120,16 +137,10 @@ class GradeDetailSheetTest {
         // Le panneau a disparu, la liste est toujours là (on la rejoint au
         // doigt : la fermeture peut rendre la position de défilement au début).
         composeRule.onNodeWithText("Barème").assertDoesNotExist()
-        for (step in 0 until 12) {
-            if (composeRule.onAllNodesWithText("Contrôle fonctions")
-                    .fetchSemanticsNodes().isNotEmpty()
-            ) {
-                break
-            }
-            composeRule.onAllNodes(hasScrollAction()).onFirst().performTouchInput { swipeUp() }
-            advance()
-        }
-        composeRule.onNodeWithText("Contrôle fonctions").assertExists()
+        bringGradesOnScreen()
+        composeRule.onAllNodesWithText("Contrôle fonctions")
+            .filterToOne(hasClickAction())
+            .assertIsDisplayed()
     }
 
     companion object {

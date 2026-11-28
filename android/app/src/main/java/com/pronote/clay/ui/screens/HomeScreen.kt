@@ -2,10 +2,28 @@ package com.pronote.clay.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.State
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.platform.LocalDensity
+import kotlinx.coroutines.isActive
+import kotlin.math.sin
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -23,7 +41,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -34,10 +51,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -138,29 +151,71 @@ fun HomeScreen(
     // le détail vit ici, dans un panneau qui monte du bas.
     var selectedGrade by remember { mutableStateOf<Grade?>(null) }
 
-    // Glissement d'un bloc : l'identifiant décollé et le décalage sous le doigt.
-    val listState = rememberLazyListState()
-    var draggedId by remember { mutableStateOf<String?>(null) }
-    var dragDelta by remember { mutableFloatStateOf(0f) }
+    // ---- blocs déplaçables ------------------------------------------------
+    //
+    // Le glissement vit dans les coordonnées du *contenu* : chaque bloc retient
+    // son haut mesuré, le doigt sa position absolue, et le décalage dessiné est
+    // recalculé à chaque image à partir des deux. Réordonner la liste ne fait
+    // donc jamais sauter le bloc tenu sous le doigt.
+    val scrollState = rememberScrollState()
+    val drag = remember { BlockDrag() }
+    var viewportHeight by remember { mutableFloatStateOf(0f) }
+    val density = LocalDensity.current
+    val edge = with(density) { 96.dp.toPx() }
+    val scrollStep = with(density) { 15.dp.toPx() }
+    val blocksNow = rememberUpdatedState(blocks)
+    val reorder = { drag.reorder(blocksNow.value, viewModel::moveHomeBlock) }
+
+    // Tremblement des autres blocs, comme les apps sur l'écran d'accueil iOS.
+    val wobble: State<Float>? = if (drag.draggedId == null) {
+        null
+    } else {
+        rememberInfiniteTransition(label = "tremblement").animateFloat(
+            initialValue = 0f,
+            targetValue = (2 * Math.PI).toFloat(),
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 760, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart,
+            ),
+            label = "phase",
+        )
+    }
+
+    // Défilement automatique près des bords : sans lui, un bloc ne pouvait pas
+    // traverser plus d'un écran. Le doigt est suivi en coordonnées de contenu,
+    // donc le défilement se compense exactement.
+    LaunchedEffect(drag.draggedId, viewportHeight, edge, scrollStep) {
+        if (drag.draggedId == null || viewportHeight <= 0f) return@LaunchedEffect
+        while (isActive) {
+            withFrameNanos { }
+            val finger = drag.dragY - scrollState.value
+            val step = when {
+                finger < edge -> -((edge - finger) / edge).coerceIn(0f, 1f) * scrollStep
+                finger > viewportHeight - edge ->
+                    ((finger - (viewportHeight - edge)) / edge).coerceIn(0f, 1f) * scrollStep
+                else -> 0f
+            }
+            if (step == 0f) continue
+            drag.dragY += scrollState.scrollBy(step)
+            reorder()
+        }
+    }
 
     Box(Modifier.fillMaxSize()) {
-        LazyColumn(
-            state = listState,
-            // The Activity draws edge-to-edge; keep the dashboard inside the
-            // status-bar/display-cutout and navigation-bar safe areas.
-            modifier = Modifier.fillMaxSize().safeDrawingPadding(),
-            contentPadding = PaddingValues(
-                start = ClayDimens.ScreenPadding,
-                end = ClayDimens.ScreenPadding,
-                bottom = 128.dp,
-            ),
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                // The Activity draws edge-to-edge: keep the dashboard inside the
+                // status-bar/display-cutout and navigation-bar safe areas.
+                .safeDrawingPadding()
+                .onSizeChanged { viewportHeight = it.height.toFloat() }
+                .verticalScroll(scrollState)
+                .padding(horizontal = ClayDimens.ScreenPadding),
         ) {
-            item(key = "header") {
-                ClayReveal { HomeTopBar(snapshot, viewModel) }
-            }
-            item(key = "header-gap") { Spacer(Modifier.height(18.dp)) }
+            ClayReveal { HomeTopBar(snapshot, viewModel) }
+            Spacer(Modifier.height(18.dp))
 
-            homeStatusBanners(
+            HomeStatusBanners(
                 snapshot = snapshot,
                 online = online,
                 offline = offline != null,
@@ -169,69 +224,29 @@ fun HomeScreen(
             )
 
             if (periods.size > 1) {
-                item(key = "periods") {
-                    ClayReveal(index = 1) {
-                        Column {
-                            PeriodSelector(
-                                periods = periods,
-                                selectedId = selectedPeriod,
-                                onSelect = viewModel::selectPeriod,
-                            )
-                            Spacer(Modifier.height(14.dp))
-                        }
+                ClayReveal(index = 1) {
+                    Column {
+                        PeriodSelector(
+                            periods = periods,
+                            selectedId = selectedPeriod,
+                            onSelect = viewModel::selectPeriod,
+                        )
+                        Spacer(Modifier.height(14.dp))
                     }
                 }
             }
 
-            items(blocks, key = { "block-$it" }) { id ->
-                val key = "block-$id"
-                val dragging = draggedId == id
-                Box(
-                    modifier = Modifier
-                        .zIndex(if (dragging) 2f else 0f)
-                        .graphicsLayer { translationY = if (dragging) dragDelta else 0f }
-                        .pointerInput(id) {
-                            // Un appui long décolle le bloc ; ensuite le doigt le
-                            // déplace et le bloc voisin dont il prend la place est
-                            // échangé en direct.
-                            fun moveUnderFinger(dy: Float) {
-                                dragDelta += dy
-                                val visible = listState.layoutInfo.visibleItemsInfo
-                                val own = visible.firstOrNull { it.key == key } ?: return
-                                val centre = own.offset + own.size / 2f + dragDelta
-                                val target = visible.firstOrNull { other ->
-                                    val otherKey = other.key as? String ?: return@firstOrNull false
-                                    otherKey.startsWith("block-") && otherKey != key &&
-                                        centre >= other.offset &&
-                                        centre <= other.offset + other.size
-                                } ?: return
-                                val targetId = (target.key as String).removePrefix("block-")
-                                viewModel.moveHomeBlock(id, targetId)
-                                // Le bloc reste sous le doigt malgré le nouvel ordre.
-                                dragDelta = own.offset + dragDelta - target.offset
-                            }
-
-                            detectDragGesturesAfterLongPress(
-                                onDragStart = {
-                                    draggedId = id
-                                    dragDelta = 0f
-                                },
-                                onDrag = { change, amount ->
-                                    change.consume()
-                                    moveUnderFinger(amount.y)
-                                },
-                                onDragEnd = {
-                                    draggedId = null
-                                    dragDelta = 0f
-                                },
-                                onDragCancel = {
-                                    draggedId = null
-                                    dragDelta = 0f
-                                },
-                            )
-                        },
-                ) {
-                    ClayReveal(index = 1) {
+            blocks.forEach { id ->
+                // La clé garde l'état de chaque bloc à sa place quand l'ordre
+                // change : la période choisie dans « Évolution » ne saute pas
+                // d'un bloc à l'autre après un déplacement.
+                key(id) {
+                    HomeBlockItem(
+                        id = id,
+                        wobble = wobble,
+                        drag = drag,
+                        onReorder = reorder,
+                    ) {
                         HomeBlock(
                             id = id,
                             average = average,
@@ -245,6 +260,9 @@ fun HomeScreen(
                     }
                 }
             }
+
+            // La barre de navigation flottante ne doit recouvrir aucun bloc.
+            Spacer(Modifier.height(128.dp))
         }
 
         GradeDetailSheet(
@@ -257,6 +275,139 @@ fun HomeScreen(
             },
             onDismiss = { selectedGrade = null },
         )
+    }
+}
+
+/**
+ * Un bloc de l'accueil, tenu ou non.
+ *
+ * Le nœud qui capte le geste reste à sa place dans la liste ; c'est un enfant
+ * qui se décale à l'écran. Le décalage se recalcule depuis le haut mesuré du
+ * bloc, donc un échange ne le fait pas sauter et un bloc plus haut que son
+ * voisin ne saute pas plusieurs places d'un coup.
+ */
+@Composable
+private fun HomeBlockItem(
+    id: String,
+    wobble: State<Float>?,
+    drag: BlockDrag,
+    onReorder: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    val dragging = drag.draggedId == id
+    // Déphasage stable (l'index dans l'ordre par défaut), sinon la secousse
+    // changerait d'amplitude à chaque déplacement.
+    val phaseIndex = HomeBlocks.DEFAULT.indexOf(id).coerceAtLeast(0)
+
+    Box(
+        modifier = Modifier
+            .onGloballyPositioned { coordinates ->
+                val top = coordinates.positionInParent().y
+                val height = coordinates.size.height.toFloat()
+                if (drag.tops[id] != top) drag.tops[id] = top
+                if (drag.heights[id] != height) drag.heights[id] = height
+            }
+            .zIndex(if (dragging) 1f else 0f)
+            .pointerInput(id) {
+                detectDragGesturesAfterLongPress(
+                    onDragStart = { offset ->
+                        drag.grab = offset.y
+                        drag.dragY = (drag.tops[id] ?: 0f) + offset.y
+                        drag.draggedId = id
+                    },
+                    onDrag = { change, _ ->
+                        change.consume()
+                        // Position du doigt, pas un cumul de deltas : elle reste
+                        // juste même quand la liste se réordonne ou défile.
+                        val then = drag.dragY
+                        drag.dragY = (drag.tops[id] ?: 0f) + change.position.y
+                        drag.direction = drag.dragY - then
+                        onReorder()
+                    },
+                    onDragEnd = { drag.end() },
+                    onDragCancel = { drag.end() },
+                )
+            },
+    ) {
+        Box(
+            modifier = Modifier.graphicsLayer {
+                if (dragging) {
+                    translationY = drag.dragY - drag.grab - (drag.tops[id] ?: 0f)
+                    scaleX = 1.02f
+                    scaleY = 1.02f
+                    rotationZ = 0f
+                } else {
+                    translationY = 0f
+                    scaleX = 1f
+                    scaleY = 1f
+                    val phase = wobble?.value
+                    rotationZ = if (phase == null) {
+                        0f
+                    } else {
+                        sin(phase + phaseIndex * 1.15f) * 1.5f
+                    }
+                }
+            },
+        ) {
+            ClayReveal(index = 1) { content() }
+        }
+    }
+}
+
+/**
+ * État du glissement d'un bloc.
+ *
+ * Tout est exprimé dans les coordonnées du contenu défilant : ni le défilement
+ * ni l'ordre courant n'entrent dans le calcul, ce qui rend le geste stable.
+ */
+private class BlockDrag {
+    var draggedId by mutableStateOf<String?>(null)
+
+    /** Position du doigt, dans les coordonnées du contenu. */
+    var dragY by mutableFloatStateOf(0f)
+
+    /** Où le doigt a attrapé le bloc, depuis son haut. */
+    var grab by mutableFloatStateOf(0f)
+
+    /** Dernier déplacement du doigt : > 0 vers le bas, < 0 vers le haut. */
+    var direction by mutableFloatStateOf(0f)
+
+    val tops = mutableStateMapOf<String, Float>()
+    val heights = mutableStateMapOf<String, Float>()
+
+    fun end() {
+        draggedId = null
+        dragY = 0f
+        grab = 0f
+        direction = 0f
+    }
+
+    /**
+     * Échange le bloc tenu avec le seul voisin dont le milieu est franchi.
+     *
+     * Deux garde-fous, sans lesquels le glissement sautait dans tous les sens :
+     * un seul échange par image, et uniquement dans le sens du doigt. Juste
+     * après un échange, le bloc échangé se retrouve collé au bloc tenu et son
+     * milieu se trouve du mauvais côté : sans le sens du geste, le bloc tenu
+     * repartait aussitôt en arrière, une image sur deux.
+     */
+    fun reorder(order: List<String>, move: (String, String) -> Unit) {
+        val id = draggedId ?: return
+        val step = direction
+        if (step == 0f) return
+        val from = order.indexOf(id)
+        if (from < 0) return
+        val centre = dragY - grab + (heights[id] ?: 0f) / 2f
+
+        if (step > 0f) {
+            val below = order.getOrNull(from + 1) ?: return
+            val edge = tops[below] ?: return
+            if (centre > edge + (heights[below] ?: 0f) / 2f) move(id, below)
+        } else {
+            val above = order.getOrNull(from - 1) ?: return
+            val edge = tops[above] ?: return
+            if (centre < edge + (heights[above] ?: 0f) / 2f) move(id, above)
+        }
     }
 }
 
@@ -296,7 +447,8 @@ private fun HomeBlock(
 }
 
 /** Bandeaux hors ligne, synchro partielle et erreur, au-dessus de la moyenne. */
-private fun LazyListScope.homeStatusBanners(
+@Composable
+private fun HomeStatusBanners(
     snapshot: SchoolSnapshot?,
     online: Boolean,
     offline: Boolean,
@@ -304,28 +456,22 @@ private fun LazyListScope.homeStatusBanners(
     error: HomeUiState.Error?,
 ) {
     if (!online || offline) {
-        item(key = "offline") {
-            ClayReveal(index = 1) { OfflineBanner(snapshot) }
-            Spacer(Modifier.height(14.dp))
-        }
+        ClayReveal(index = 1) { OfflineBanner(snapshot) }
+        Spacer(Modifier.height(14.dp))
     }
     if (issue != null) {
-        item(key = "issue") {
-            ClayReveal(index = 1) {
-                Column {
-                    ClayErrorBox(message = issue.message, hint = issue.hint)
-                    Spacer(Modifier.height(14.dp))
-                }
+        ClayReveal(index = 1) {
+            Column {
+                ClayErrorBox(message = issue.message, hint = issue.hint)
+                Spacer(Modifier.height(14.dp))
             }
         }
     }
     if (error != null) {
-        item(key = "error") {
-            ClayReveal(index = 1) {
-                Column {
-                    ClayErrorBox(message = error.message, hint = error.hint)
-                    Spacer(Modifier.height(14.dp))
-                }
+        ClayReveal(index = 1) {
+            Column {
+                ClayErrorBox(message = error.message, hint = error.hint)
+                Spacer(Modifier.height(14.dp))
             }
         }
     }

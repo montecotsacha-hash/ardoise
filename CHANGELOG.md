@@ -11,6 +11,7 @@ la navigation et au papier — rien de plus.
 
 ## Versions
 
+- `1.6.14` — « Pli » — 28 novembre 2026 : le déplacement des blocs du tableau de bord est enfin fluide. Le bloc tenu reste collé au doigt, même quand la liste change d'ordre sous lui — plus de saut, plus de retour en arrière une image sur deux, et le défilement suit le doigt quand on atteint un bord. Dès qu'un bloc est maintenu, tous les autres tremblent légèrement, comme les applications sur un écran d'accueil iOS, et un appui long sur un bloc très haut ne le fait plus enjamber plusieurs places d'un coup.
 - `1.6.13` — « Sillage » — 28 novembre 2026 : les widgets suivent enfin le téléphone — les couleurs Material You quand elles sont activées, la vraie courbe d'évolution reprise du graphique de l'application, et trois widgets de plus (dernières notes, moyennes par matière, objectif de moyenne). La session Pronote ne se déconnecte plus : un jeton refusé est rejoué trois fois, avec une pause croissante, avant d'abandonner. Les blocs du tableau de bord se déplacent par appui long puis glissement, l'objectif de moyenne passe en bas de page, et le bouton d'actualisation disparaît — la synchronisation reste silencieuse.
 - `1.6.12` — « Ralingue » — 28 novembre 2026 : retrouver son établissement ne demande plus de connaître l'adresse Pronote — il suffit d'écrire sa ville pour voir la liste des établissements du secteur (filtrable par nom, et les dernières recherches restent consultables hors ligne) ; un QR code sur la page de connexion de l'établissement remplit l'adresse ; un bouton « Vérifier cette adresse » explique ce qui bloque quand la connexion échoue ; Android propose enfin l'identifiant et le mot de passe enregistrés. Une carte « Objectif de moyenne » indique quelle note il reste à obtenir pour atteindre la moyenne visée.
 - `1.6.11` — « Quille » — 27 novembre 2026 : après une mise à jour, Pronote pouvait suspendre temporairement les connexions — l'app enchaînait plusieurs tentatives (jeton puis mot de passe, à chaque synchro de fond) et affichait une panne vague. Elle s'arrête maintenant dès le refus, ne renvoie plus rien pendant trente minutes et explique clairement qu'il faut attendre avant de réessayer. Le site de téléchargement reprend par ailleurs le design plat de l'application (mêmes couleurs, mêmes cartes, mode sombre).
@@ -30,5 +31,4 @@ la navigation et au papier — rien de plus.
 
 ## Liste de réserve (noms pas encore utilisés)
 
-- `Pli`
 - `Étambot`
