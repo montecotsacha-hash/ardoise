@@ -108,18 +108,18 @@ jobs:
           (cd dist && sha256sum Ardoise.apk Ardoise.aab | tee SHA256SUMS.txt)
           echo "TAG=${{ github.event.inputs.tag || github.ref_name }}" >> "$GITHUB_ENV"
 
+      # Les notes de version viennent du journal, pas d'un texte recopié : la
+      # release, le site et l'application racontent forcément la même chose.
+      # Sans entrée pour le tag, l'étape échoue au lieu de publier du vide.
+      - name: Notes de version (CHANGELOG.md)
+        run: node scripts/release-notes.mjs "$TAG" > dist/release-notes.md
+
       - name: Publier la release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.TAG }}
           name: Ardoise ${{ env.TAG }}
-          body: |
-            APK signé (clé d'upload) à installer sur Android 8.0 et plus, et AAB
-            correspondant pour les magasins. Vérifie l'empreinte SHA-256 dans
-            `SHA256SUMS.txt` avant d'installer.
-
-            Mise à jour automatique sur le téléphone : ajoute cette page de
-            releases dans Obtainium.
+          body_path: dist/release-notes.md
           generate_release_notes: true
           files: |
             dist/Ardoise.apk

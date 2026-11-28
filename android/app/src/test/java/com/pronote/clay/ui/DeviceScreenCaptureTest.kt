@@ -177,7 +177,7 @@ class DeviceScreenCaptureTest {
         composeRule.onNodeWithText("Se déconnecter").assertExists()
         capture("03-reglages.png")
 
-        composeRule.onNodeWithContentDescription("Emploi du temps").performClick()
+        composeRule.onNodeWithContentDescription("Cours").performClick()
         advance()
         // Et réciproquement : le tableau de bord a bien été démonté.
         composeRule.onAllNodesWithText("Évolution").assertCountEquals(0)

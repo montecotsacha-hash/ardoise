@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.text.font.FontWeight
 import com.pronote.clay.ui.theme.LocalFrosted
+import com.pronote.clay.ui.theme.LocalReduceMotion
 import com.pronote.clay.ui.theme.frosted
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -45,6 +46,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -81,8 +83,15 @@ fun ClayReveal(
     content: @Composable BoxScope.() -> Unit,
 ) {
     val progress = remember { Animatable(0f) }
+    val reduceMotion = LocalReduceMotion.current
 
     LaunchedEffect(key) {
+        // Sans mouvement : le contenu est là tout de suite, sans fondu ni
+        // décalage. L'ordre de lecture reste identique.
+        if (reduceMotion) {
+            progress.snapTo(1f)
+            return@LaunchedEffect
+        }
         progress.snapTo(0f)
         progress.animateTo(
             targetValue = 1f,
@@ -150,7 +159,9 @@ fun ClaySurface(
             .border(1.dp, cardOutline(scheme, dark), shape)
             .then(
                 if (onClick != null) {
-                    Modifier.clickable(
+                    // Une puce fait ~26 dp de haut : le doigt, lui, a besoin de
+                    // 48 dp. La cible tactile grandit, le dessin non.
+                    Modifier.minimumInteractiveComponentSize().clickable(
                         interactionSource = interaction,
                         indication = null,
                         role = Role.Button,
@@ -205,7 +216,11 @@ fun ClayPill(
 ) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(if (pressed) 0.93f else 1f, label = "pill-press")
+    val reduceMotion = LocalReduceMotion.current
+    val scale by animateFloatAsState(
+        if (pressed && !reduceMotion) 0.93f else 1f,
+        label = "pill-press",
+    )
 
     Surface(
         modifier = modifier

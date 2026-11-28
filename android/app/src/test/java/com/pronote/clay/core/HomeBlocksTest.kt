@@ -12,6 +12,7 @@ class HomeBlocksTest {
             listOf(
                 HomeBlocks.AVERAGE,
                 HomeBlocks.HISTORY,
+                HomeBlocks.ATTENDANCE,
                 HomeBlocks.SUBJECTS,
                 HomeBlocks.GRADES,
                 HomeBlocks.TARGET,

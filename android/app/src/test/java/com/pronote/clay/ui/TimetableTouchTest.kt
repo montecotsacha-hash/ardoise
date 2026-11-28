@@ -88,7 +88,7 @@ class TimetableTouchTest {
         composeRule.onNodeWithText("Se connecter").performClick()
         advance()
 
-        composeRule.onNodeWithContentDescription("Emploi du temps").performClick()
+        composeRule.onNodeWithContentDescription("Cours").performClick()
         advance()
     }
 

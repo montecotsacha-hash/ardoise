@@ -9,6 +9,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
@@ -34,6 +36,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Assignment
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Settings
@@ -58,20 +61,28 @@ import androidx.compose.ui.unit.dp
 import com.pronote.clay.data.remote.UpdateStatus
 import com.pronote.clay.ui.components.UpdateAvailableDialog
 import com.pronote.clay.ui.screens.HomeScreen
+import com.pronote.clay.ui.screens.HomeworkScreen
 import com.pronote.clay.ui.screens.SettingsScreen
 import com.pronote.clay.ui.screens.TimetableScreen
+import com.pronote.clay.ui.theme.LocalReduceMotion
 import com.pronote.clay.ui.viewmodel.HomeViewModel
+import com.pronote.clay.ui.viewmodel.HomeworkViewModel
 import com.pronote.clay.ui.viewmodel.TimetableViewModel
 
 /**
- * The three sections of the app.
+ * Les quatre sections de l'app.
+ *
+ * Les libellés sont courts à dessein : quatre onglets doivent tenir sur une
+ * barre de 360 dp sans tronquer « Emploi du temps ». L'écran, lui, garde son
+ * titre complet.
  *
  * Navigation is a single floating bottom bar, like the system's own: one plane
  * of glass over the content, no drawer, nothing hidden behind a hamburger.
  */
 enum class AppSection(val label: String, val icon: ImageVector) {
     Dashboard("Accueil", Icons.Rounded.Home),
-    Timetable("Emploi du temps", Icons.Rounded.CalendarMonth),
+    Timetable("Cours", Icons.Rounded.CalendarMonth),
+    Homework("Travail", Icons.AutoMirrored.Rounded.Assignment),
     Settings("Réglages", Icons.Rounded.Settings),
 }
 
@@ -82,6 +93,7 @@ enum class AppSection(val label: String, val icon: ImageVector) {
  */
 @Composable
 fun AppShell(viewModel: HomeViewModel) {
+    val reduceMotion = LocalReduceMotion.current
     var section by rememberSaveable { mutableStateOf(AppSection.Dashboard) }
 
     // Retour système : depuis une autre section, il ramène à l'accueil au lieu
@@ -94,19 +106,24 @@ fun AppShell(viewModel: HomeViewModel) {
         AnimatedContent(
             targetState = section,
             transitionSpec = {
-                val forward = targetState.ordinal >= initialState.ordinal
-                (
-                    slideInHorizontally(
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioNoBouncy,
-                            stiffness = Spring.StiffnessMediumLow,
-                        ),
-                    ) { if (forward) it / 10 else -it / 10 } +
-                        fadeIn(spring(stiffness = Spring.StiffnessMediumLow))
-                    ) togetherWith (
-                    slideOutHorizontally(tween(180)) { if (forward) -it / 14 else it / 14 } +
-                        fadeOut(tween(140))
-                    )
+                // Accessibilité : un changement de section devient instantané.
+                if (reduceMotion) {
+                    EnterTransition.None togetherWith ExitTransition.None
+                } else {
+                    val forward = targetState.ordinal >= initialState.ordinal
+                    (
+                        slideInHorizontally(
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioNoBouncy,
+                                stiffness = Spring.StiffnessMediumLow,
+                            ),
+                        ) { if (forward) it / 10 else -it / 10 } +
+                            fadeIn(spring(stiffness = Spring.StiffnessMediumLow))
+                        ) togetherWith (
+                        slideOutHorizontally(tween(180)) { if (forward) -it / 14 else it / 14 } +
+                            fadeOut(tween(140))
+                        )
+                }
             },
             label = "section",
             modifier = Modifier.fillMaxSize(),
@@ -124,6 +141,17 @@ fun AppShell(viewModel: HomeViewModel) {
                         }
                     TimetableScreen(
                         viewModel = timetableViewModel,
+                        onBack = { section = AppSection.Dashboard },
+                    )
+                }
+
+                AppSection.Homework -> {
+                    val homeworkViewModel: HomeworkViewModel =
+                        androidx.lifecycle.viewmodel.compose.viewModel {
+                            HomeworkViewModel(viewModel.container)
+                        }
+                    HomeworkScreen(
+                        viewModel = homeworkViewModel,
                         onBack = { section = AppSection.Dashboard },
                     )
                 }
@@ -172,6 +200,7 @@ private fun FloatingNavBar(
     modifier: Modifier = Modifier,
 ) {
     val scheme = MaterialTheme.colorScheme
+    val reduceMotion = LocalReduceMotion.current
     val tabs = AppSection.entries
 
     // Position animée de la pastille, en unités d'onglet.
@@ -243,6 +272,7 @@ private fun NavTab(
     modifier: Modifier = Modifier,
 ) {
     val scheme = MaterialTheme.colorScheme
+    val reduceMotion = LocalReduceMotion.current
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
 
@@ -295,14 +325,19 @@ private fun NavTab(
         )
         // Le libellé reste : une icône seule rend la navigation devinette. Il
         // s'ouvre en largeur (et non en fondu seul) pour accompagner la pastille.
+        // Les quatre libellés courts tiennent sur une seule ligne.
         AnimatedVisibility(
             visible = selected,
-            enter = fadeIn(tween(180, delayMillis = 40)) +
+            enter = if (reduceMotion) EnterTransition.None else fadeIn(tween(180, delayMillis = 40)) +
                 expandHorizontally(
                     animationSpec = spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow),
                     expandFrom = Alignment.Start,
                 ),
-            exit = fadeOut(tween(90)) + shrinkHorizontally(tween(120), shrinkTowards = Alignment.Start),
+            exit = if (reduceMotion) {
+                ExitTransition.None
+            } else {
+                fadeOut(tween(90)) + shrinkHorizontally(tween(120), shrinkTowards = Alignment.Start)
+            },
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Spacer(Modifier.width(8.dp))

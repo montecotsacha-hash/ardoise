@@ -63,6 +63,35 @@ class GetTimetableUseCase(private val repository: PronoteRepository) {
         repository.getTimetable(accountId, weekStartIso)
 }
 
+/**
+ * Cahier de textes d'une plage de dates.
+ *
+ * [cached] sert l'écran immédiatement, [execute] rafraîchit : la liste ne
+ * clignote jamais entre deux ouvertures.
+ */
+class GetHomeworkUseCase(private val repository: PronoteRepository) {
+    fun cached(accountId: String): List<Homework> = repository.cachedHomework(accountId)
+
+    suspend fun execute(
+        accountId: String,
+        fromIso: String,
+        toIso: String,
+    ): PronoteResult<List<Homework>> = repository.getHomework(accountId, fromIso, toIso)
+}
+
+/** Absences et retards, avec le même fonctionnement cache puis réseau. */
+class GetAttendanceUseCase(private val repository: PronoteRepository) {
+    fun cached(accountId: String): List<AttendanceEntry> = repository.cachedAttendance(accountId)
+
+    suspend fun execute(accountId: String): PronoteResult<List<AttendanceEntry>> =
+        repository.getAttendance(accountId)
+}
+
+/** Dernière semaine d'emploi du temps mémorisée (widget du jour). */
+class GetCachedWeekUseCase(private val repository: PronoteRepository) {
+    fun execute(accountId: String): List<TimetableLesson> = repository.cachedWeek(accountId)
+}
+
 class RefreshSessionUseCase(private val repository: PronoteRepository) {
     suspend fun execute(accountId: String) = repository.refreshSession(accountId)
 }

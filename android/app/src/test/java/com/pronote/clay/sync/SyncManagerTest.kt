@@ -105,6 +105,27 @@ class SyncManagerTest {
             accountId: String,
             weekStartIso: String,
         ): PronoteResult<List<com.pronote.clay.domain.TimetableLesson>> = PronoteResult.Success(emptyList())
+
+        override suspend fun getHomework(
+            accountId: String,
+            fromIso: String,
+            toIso: String,
+        ): PronoteResult<List<com.pronote.clay.domain.Homework>> =
+            PronoteResult.Success(emptyList())
+
+        override suspend fun getAttendance(
+            accountId: String,
+        ): PronoteResult<List<com.pronote.clay.domain.AttendanceEntry>> =
+            PronoteResult.Success(emptyList())
+
+        override fun cachedHomework(accountId: String) =
+            emptyList<com.pronote.clay.domain.Homework>()
+
+        override fun cachedAttendance(accountId: String) =
+            emptyList<com.pronote.clay.domain.AttendanceEntry>()
+
+        override fun cachedWeek(accountId: String) =
+            emptyList<com.pronote.clay.domain.TimetableLesson>()
     }
 
     private fun restorableSession() = PronoteSession(

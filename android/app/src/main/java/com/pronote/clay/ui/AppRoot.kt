@@ -24,6 +24,7 @@ import com.pronote.clay.ui.components.clay
 import com.pronote.clay.ui.screens.LoginScreen
 import com.pronote.clay.ui.theme.AmbientBackdrop
 import com.pronote.clay.ui.theme.AppTheme
+import com.pronote.clay.ui.theme.systemAnimationsDisabled
 import com.pronote.clay.ui.viewmodel.HomeEvent
 import com.pronote.clay.ui.viewmodel.HomeUiState
 import com.pronote.clay.ui.viewmodel.HomeViewModel
@@ -60,7 +61,13 @@ fun AppRoot(viewModel: HomeViewModel) {
         }
     }
 
-    AppTheme(darkTheme = preferences.darkTheme, dynamicColor = preferences.dynamicColor) {
+    AppTheme(
+        darkTheme = preferences.darkTheme,
+        dynamicColor = preferences.dynamicColor,
+        // Le choix de l'app suffit, mais couper les animations dans Android
+        // doit aussi les couper ici : c'est le même besoin d'accessibilité.
+        reduceMotion = preferences.reduceMotion || systemAnimationsDisabled(context),
+    ) {
         // The ambient field is the canvas of the whole design system: every
         // screen draws its translucent chrome on top of it.
         Box(modifier = Modifier.fillMaxSize()) {

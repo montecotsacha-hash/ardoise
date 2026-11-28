@@ -131,4 +131,51 @@ data class Preferences(
     val displayName: String? = null,
     /** Ordre des blocs de l'accueil (identifiants de `core.HomeBlocks`). */
     val homeBlocks: List<String> = emptyList(),
+    /** Réduit les animations, sans changer le reste de l'interface. */
+    val reduceMotion: Boolean = false,
 )
+
+/**
+ * Un devoir du cahier de textes, déjà aplati pour l'interface.
+ *
+ * [description] est le texte de la consigne, balises HTML retirées : Pronote
+ * envoie du HTML riche que ni la liste ni le widget ne savent afficher.
+ */
+data class Homework(
+    val id: String,
+    val subjectName: String,
+    val description: String,
+    /** ISO date de remise (« 2026-11-30 »), vide si Pronote n'en donne pas. */
+    val dueDate: String,
+    /** ISO date à laquelle la consigne a été donnée. */
+    val givenDate: String = "",
+    val done: Boolean = false,
+    /** Noms des pièces jointes, sans les télécharger. */
+    val attachments: List<String> = emptyList(),
+) {
+    /** Tri stable : par date de remise, puis matière. */
+    val sortKey: String get() = "${'$'}dueDate|${'$'}subjectName|${'$'}id"
+}
+
+enum class AttendanceKind { ABSENCE, DELAY }
+
+/**
+ * Une absence ou un retard, avec sa durée en minutes.
+ *
+ * Les deux viennent de la même liste Pronote (`listeAbsences`, code `G` 13 ou
+ * 14) : les fusionner ici évite deux écrans pour une seule réalité — du temps
+ * de classe manqué.
+ */
+data class AttendanceEntry(
+    val id: String,
+    val kind: AttendanceKind,
+    /** ISO date (« 2026-11-30 »), vide si la date n'est pas lisible. */
+    val date: String,
+    val startTime: String? = null,
+    val endTime: String? = null,
+    val minutes: Int = 0,
+    val justified: Boolean = false,
+    val reason: String? = null,
+) {
+    val sortKey: String get() = "${'$'}date|${'$'}id"
+}

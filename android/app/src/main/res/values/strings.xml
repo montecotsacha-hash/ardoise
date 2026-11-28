@@ -23,4 +23,10 @@
     <string name="widget_notes_desc">Tes trois dernières notes.</string>
     <string name="widget_subjects_desc">Tes moyennes par matière.</string>
     <string name="widget_target_desc">La note qu’il te reste à obtenir pour viser une moyenne.</string>
+    <string name="widget_today_label">AUJOURD’HUI</string>
+    <string name="widget_today_desc">Tes cours du jour, sans ouvrir l’application.</string>
+    <string name="widget_preview_today_time_1">08:00</string>
+    <string name="widget_preview_today_subject_1">MATHÉMATIQUES</string>
+    <string name="widget_preview_today_time_2">10:00</string>
+    <string name="widget_preview_today_subject_2">FRANÇAIS</string>
 </resources>

@@ -193,6 +193,63 @@ class PronoteDirectDataSource : PronoteDataSource {
         }
     }
 
+    override suspend fun fetchHomework(
+        token: String,
+        schoolUrl: String,
+        username: String,
+        deviceUuid: String,
+        fromIso: String,
+        toIso: String,
+    ): PronoteResult<List<PronoteHomeworkDto>> =
+        withSession(token, schoolUrl, username, deviceUuid) { session ->
+            session.readHomework(fromIso, toIso)
+        }
+
+    override suspend fun fetchAttendance(
+        token: String,
+        schoolUrl: String,
+        username: String,
+        deviceUuid: String,
+    ): PronoteResult<List<PronoteAttendanceDto>> =
+        withSession(token, schoolUrl, username, deviceUuid) { session ->
+            session.readAttendance()
+        }
+
+    /**
+     * Exécute une lecture avec une session vivante, reconstruite une fois si
+     * elle a expiré — même chaîne de repli que l'emploi du temps.
+     */
+    private suspend fun <T> withSession(
+        token: String,
+        schoolUrl: String,
+        username: String,
+        deviceUuid: String,
+        read: (PronoteSession) -> T,
+    ): PronoteResult<T> = withContext(Dispatchers.IO) {
+        val key = sessionKey(schoolUrl, username)
+        if (sessions[key] == null) {
+            if (token.isBlank()) {
+                return@withContext PronoteResult.Failure(PronoteError.SessionExpired)
+            }
+            when (val restored = connectWithToken(token, schoolUrl, username, deviceUuid)) {
+                is PronoteResult.Failure -> return@withContext restored
+                is PronoteResult.Success -> Unit
+            }
+        }
+        val session = sessions[key]?.session
+            ?: return@withContext PronoteResult.Failure(PronoteError.SessionExpired)
+        try {
+            PronoteResult.Success(read(session))
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: SessionExpiredError) {
+            sessions.remove(key, sessions[key])
+            PronoteResult.Failure(mapError(error))
+        } catch (error: Throwable) {
+            PronoteResult.Failure(mapError(error))
+        }
+    }
+
     private suspend fun connectWithToken(
         token: String,
         schoolUrl: String,

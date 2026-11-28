@@ -1,8 +1,10 @@
 import type { CSSProperties } from "react";
 
+import { HIGHLIGHTED_RELEASES, RELEASES } from "./changelog";
 import { VERSION_LABEL } from "./version";
 
 const APK_URL = "/Ardoise.apk";
+const RELEASES_URL = "https://github.com/montecotsacha-hash/ardoise/releases";
 const APK_NAME = "Ardoise.apk";
 
 /** Stagger helper: each block fades in slightly after the previous one. */
@@ -146,6 +148,38 @@ export default function App() {
             </div>
           ))}
         </div>
+      </section>
+
+      {/* Nouveautés : le journal des versions, sans second fichier à tenir */}
+      <section aria-labelledby="nouveautes">
+        <h2 id="nouveautes" className="section-title">
+          Nouveautés
+        </h2>
+        <div className="features">
+          {RELEASES.slice(0, HIGHLIGHTED_RELEASES).map((release, index) => (
+            <div
+              key={release.version}
+              className="feature reveal"
+              style={delay(160 + index * 70)}
+            >
+              <div className="feature__head">
+                <span
+                  className="dot"
+                  style={{ background: "var(--accent-2)" }}
+                  aria-hidden="true"
+                />
+                <h3>
+                  {release.version} « {release.name} »
+                </h3>
+              </div>
+              <span className="chip release__date">{release.date}</span>
+              <p>{release.summary}</p>
+            </div>
+          ))}
+        </div>
+        <p className="release__more">
+          <a href={RELEASES_URL}>Tout le journal des versions</a>
+        </p>
       </section>
 
       {/* Installation */}

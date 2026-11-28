@@ -737,6 +737,72 @@ internal class PronoteSession private constructor(
     }
 
     /**
+     * Cahier de textes sur une plage de dates (`PageCahierDeTexte`, onglet 88).
+     *
+     * Le protocole ne connaît que des semaines : `domaine.V` vaut
+     * « [début..fin] ». On envoie la semaine de [fromIso] et celle de [toIso],
+     * le serveur renvoyant les devoirs qui tombent dedans.
+     */
+    fun readHomework(fromIso: String, toIso: String): List<PronoteHomeworkDto> {
+        val firstWeek = weekNumberFor(fromIso)
+        val lastWeek = maxOf(firstWeek, weekNumberFor(toIso))
+        val payload = JSONObject().put(
+            "domaine",
+            JSONObject().put("_T", 8).put("V", "[${'$'}firstWeek..${'$'}lastWeek]"),
+        )
+
+        val response = post(
+            "PageCahierDeTexte",
+            JSONObject()
+                .put("Signature", JSONObject().put("onglet", 88))
+                .put("data", payload)
+                .put("donnees", payload),
+        ).contentData()
+
+        return parseHomework(response)
+    }
+
+    /**
+     * Absences et retards de l'année (`PagePresence`, onglet 19).
+     *
+     * Le serveur exige une période et une plage de dates ; sans période connue
+     * on demande l'année scolaire entière, ce qui reste mieux qu'un écran vide
+     * sur un établissement qui n'expose pas de trimestre par défaut.
+     */
+    fun readAttendance(): List<PronoteAttendanceDto> {
+        val period = defaultPeriod ?: periods.firstOrNull()
+        val today = java.time.LocalDate.now()
+        val start = firstMonday ?: defaultSchoolYearMonday(today)
+        val format = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")
+
+        val payload = JSONObject()
+        if (period != null) {
+            payload.put(
+                "periode",
+                JSONObject().put("N", period.id).put("L", period.name).put("G", 2),
+            )
+        }
+        payload.put(
+            "DateDebut",
+            JSONObject().put("_T", 7).put("V", "${'$'}{start.format(format)} 00:00:00"),
+        )
+        payload.put(
+            "DateFin",
+            JSONObject().put("_T", 7).put("V", "${'$'}{start.plusYears(1).format(format)} 23:59:59"),
+        )
+
+        val response = post(
+            "PagePresence",
+            JSONObject()
+                .put("Signature", JSONObject().put("onglet", 19))
+                .put("data", payload)
+                .put("donnees", payload),
+        ).contentData()
+
+        return parseAttendance(response)
+    }
+
+    /**
      * Numéro de semaine Pronote de la semaine contenant [weekStartIso] :
      * 1 + le nombre de semaines depuis le premier lundi de l'année scolaire.
      */

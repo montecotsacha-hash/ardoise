@@ -341,6 +341,23 @@ a {
   color: var(--muted);
 }
 
+.release__date {
+  justify-self: start;
+  background: var(--surface);
+  color: var(--muted);
+}
+
+.release__more {
+  margin: -34px 0 48px;
+  text-align: center;
+  font-size: 14px;
+}
+
+.release__more a {
+  color: var(--accent-1);
+  font-weight: 700;
+}
+
 /* -------------------------------------------------------------- installation */
 
 .install {

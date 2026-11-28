@@ -18,6 +18,7 @@ import com.pronote.clay.domain.AverageSource
 import com.pronote.clay.domain.AverageSummary
 import com.pronote.clay.domain.Grade
 import com.pronote.clay.domain.SchoolSnapshot
+import com.pronote.clay.domain.TimetableLesson
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -25,7 +26,7 @@ import kotlin.math.max
 import kotlin.math.min
 
 /** Les saveurs proposées par le lanceur. */
-enum class WidgetKind { AVERAGE, CURVE, DUO, GRADE, NOTES, SUBJECTS, TARGET }
+enum class WidgetKind { AVERAGE, CURVE, DUO, GRADE, NOTES, SUBJECTS, TARGET, TODAY }
 
 /**
  * WidgetArt — hand-drawn art for the home-screen widgets.
@@ -120,6 +121,8 @@ object WidgetArt {
         snapshot: SchoolSnapshot?,
         average: AverageSummary?,
         historyValues: List<Double>? = null,
+        /** Cours du jour, déjà filtrés par l'appelant (widget « Aujourd'hui »). */
+        todayLessons: List<TimetableLesson> = emptyList(),
         /** Palette explicite : le téléphone l'impose, le thème de l'app décide. */
         palette: Palette? = null,
     ): Bitmap {
@@ -182,6 +185,7 @@ object WidgetArt {
             WidgetKind.NOTES -> drawNotes(canvas, content, d, palette, snapshot)
             WidgetKind.SUBJECTS -> drawSubjects(canvas, content, d, palette, snapshot)
             WidgetKind.TARGET -> drawTarget(canvas, content, d, palette, snapshot, average)
+            WidgetKind.TODAY -> drawToday(canvas, content, d, palette, todayLessons)
         }
 
         // Hairline following the rounded edge — the glass contour.
@@ -634,6 +638,58 @@ object WidgetArt {
             lightCard = !dark,
         )
     }
+
+    /**
+     * Emploi du temps du jour : l'heure, la matière, la salle.
+     *
+     * Les cours annulés restent visibles mais barrés d'un « annulé » : les
+     * faire disparaître ferait croire à un trou dans la journée.
+     */
+    private fun drawToday(
+        canvas: Canvas, c: RectF, d: Float, p: Palette, lessons: List<TimetableLesson>,
+    ) {
+        if (lessons.isEmpty()) {
+            drawEmpty(canvas, c, d, p, "Rien de prévu aujourd'hui")
+            return
+        }
+        val eyebrowH = drawEyebrowIfRoom(canvas, c, d, p, "AUJOURD'HUI")
+        val shown = lessons.take(4)
+        // Les rangées se partagent la hauteur restante, comme les notes : un
+        // plafond fixe poussait la quatrième hors de la carte.
+        val rowH = (c.height() - eyebrowH - 4f * d) / shown.size
+        val namePaint = textPaint(
+            min(rowH * 0.42f, 12f * d), p.text, family = "sans-serif-medium",
+        )
+        val timePaint = textPaint(min(rowH * 0.34f, 10f * d), p.accent, family = "sans-serif-medium")
+        val detailPaint = textPaint(min(rowH * 0.26f, 9f * d), p.muted)
+        val gutter = timePaint.measureText("00:00") + 9f * d
+        shown.forEachIndexed { index, lesson ->
+            val top = c.top + eyebrowH + 2f * d + rowH * index
+            drawTextTop(canvas, clockOf(lesson.startIso), c.left, top + rowH * 0.12f, timePaint)
+            val nameX = c.left + gutter
+            val name = if (lesson.cancelled) "${lesson.subjectName} · annulé" else lesson.subjectName
+            drawTextTop(
+                canvas,
+                fit(name, namePaint, c.right - nameX),
+                nameX, top + rowH * 0.10f, namePaint,
+            )
+            val detail = listOfNotNull(
+                lesson.room?.takeIf { it.isNotBlank() },
+                lesson.teacher?.takeIf { it.isNotBlank() },
+            ).joinToString(" · ")
+            if (detail.isNotBlank()) {
+                drawTextTop(
+                    canvas,
+                    fit(detail, detailPaint, c.width() * 0.66f),
+                    nameX, top + rowH * 0.52f, detailPaint,
+                )
+            }
+        }
+    }
+
+    /** « 2026-11-28T08:00:00 » -> « 08:00 » ; vide si l'heure manque. */
+    private fun clockOf(startIso: String): String =
+        if (startIso.length >= 16) startIso.substring(11, 16) else ""
 
     /** Jusqu'à trois notes récentes : la matière à gauche, la note à droite. */
     private fun drawNotes(

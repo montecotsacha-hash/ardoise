@@ -9,6 +9,7 @@ import com.pronote.clay.core.PronoteResult
 import com.pronote.clay.core.SchoolSearch
 import com.pronote.clay.core.SchoolSuggestion
 import com.pronote.clay.data.remote.Diagnosis
+import com.pronote.clay.domain.AttendanceEntry
 import com.pronote.clay.domain.AverageSummary
 import com.pronote.clay.domain.Preferences
 import com.pronote.clay.domain.SchoolSnapshot
@@ -226,7 +227,27 @@ class HomeViewModel(
     private val _history = MutableStateFlow<List<com.pronote.clay.domain.HistoryPoint>>(emptyList())
     val history: StateFlow<List<com.pronote.clay.domain.HistoryPoint>> = _history.asStateFlow()
 
+    /**
+     * Absences et retards : le cache s'affiche tout de suite, le réseau
+     * confirme ensuite. Le bloc d'accueil n'attend donc jamais la synchro.
+     */
+    private val _attendance = MutableStateFlow<List<AttendanceEntry>>(emptyList())
+    val attendance: StateFlow<List<AttendanceEntry>> = _attendance.asStateFlow()
+
+    private fun loadCachedAttendance(accountId: String?) {
+        _attendance.value = accountId?.let { container.getAttendance.cached(it) }.orEmpty()
+    }
+
+    private suspend fun refreshAttendance(accountId: String) {
+        when (val result = container.getAttendance.execute(accountId)) {
+            is PronoteResult.Success -> _attendance.value = result.value
+            // Une panne réseau ne doit pas vider le bloc : le cache reste.
+            is PronoteResult.Failure -> Unit
+        }
+    }
+
     private fun refreshPeriods(accountId: String?) {
+        loadCachedAttendance(accountId)
         if (accountId == null) {
             _periods.value = emptyList()
             _selectedPeriod.value = null
@@ -385,6 +406,7 @@ class HomeViewModel(
             val restored = container.refreshSession.execute(accountId)
             sessionValid = restored != null
             if (restored != null) {
+                refreshAttendance(accountId)
                 sync(force = false)
             } else {
                 applyCurrentState(container.networkMonitor.isOnline())
@@ -394,6 +416,20 @@ class HomeViewModel(
 
     fun refresh() {
         viewModelScope.launch { sync(force = true) }
+    }
+
+    /**
+     * Relit le cache disque, sans réseau.
+     *
+     * Après une restauration, l'instantané affiché vient d'être remplacé : sans
+     * cette relecture, l'écran continuerait de montrer les anciennes notes
+     * jusqu'à la prochaine synchronisation.
+     */
+    fun reloadFromCache() {
+        val accountId = container.activeAccountId() ?: return
+        refreshPeriods(accountId)
+        applyCurrentState(container.networkMonitor.isOnline())
+        container.refreshWidgets()
     }
 
     /**
@@ -545,6 +581,7 @@ class HomeViewModel(
                     sessionValid = true
                     val snapshot = container.getCachedData.execute(accountId)
                     refreshPeriods(accountId)
+                    refreshAttendance(accountId)
                     _state.value = if (snapshot != null) {
                         buildSuccess(snapshot, refreshing = false)
                     } else {

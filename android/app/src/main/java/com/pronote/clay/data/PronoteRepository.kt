@@ -7,11 +7,15 @@ import kotlinx.coroutines.delay
 import com.pronote.clay.core.PronoteResult
 import com.pronote.clay.data.local.LocalDataSource
 import com.pronote.clay.data.remote.PronoteCompatibilityLayer
+import com.pronote.clay.data.remote.PronoteAttendanceDto
+import com.pronote.clay.data.remote.PronoteHomeworkDto
 import com.pronote.clay.data.remote.PronoteLessonDto
 import com.pronote.clay.data.remote.PronoteRawPayload
 import com.pronote.clay.data.security.SecureCredentialsManager
+import com.pronote.clay.domain.AttendanceEntry
 import com.pronote.clay.domain.AverageSource
 import com.pronote.clay.domain.GeneralAverage
+import com.pronote.clay.domain.Homework
 import com.pronote.clay.domain.HistoryPoint
 import com.pronote.clay.domain.PronoteSession
 import com.pronote.clay.domain.SchoolSnapshot
@@ -93,6 +97,30 @@ interface PronoteRepository {
      * stays instant on re-visit.
      */
     suspend fun getTimetable(accountId: String, weekStartIso: String): PronoteResult<List<com.pronote.clay.domain.TimetableLesson>>
+
+    /**
+     * Cahier de textes entre deux dates ISO incluses.
+     *
+     * Réseau d'abord, puis cache disque : un devoir déjà vu reste consultable
+     * dans le bus, et le widget n'a jamais besoin d'une requête.
+     */
+    suspend fun getHomework(
+        accountId: String,
+        fromIso: String,
+        toIso: String,
+    ): PronoteResult<List<Homework>>
+
+    /** Absences et retards de l'année, avec le même repli hors-ligne. */
+    suspend fun getAttendance(accountId: String): PronoteResult<List<AttendanceEntry>>
+
+    /** Devoirs mémorisés, sans réseau. */
+    fun cachedHomework(accountId: String): List<Homework>
+
+    /** Absences et retards mémorisés, sans réseau. */
+    fun cachedAttendance(accountId: String): List<AttendanceEntry>
+
+    /** Dernière semaine d'emploi du temps vue, pour le widget du jour. */
+    fun cachedWeek(accountId: String): List<com.pronote.clay.domain.TimetableLesson>
 }
 
 class PronoteRepositoryImpl(
@@ -276,14 +304,108 @@ class PronoteRepositoryImpl(
             }
         }
 
-        if (result is PronoteResult.Failure) return result
+        if (result is PronoteResult.Failure) {
+            // Hors-ligne : la semaine déjà mémorisée reste consultable, mais
+            // seulement si c'est bien celle demandée — afficher une autre
+            // semaine sous ce titre serait pire qu'un message d'erreur.
+            val cached = local.loadWeek(accountId)?.takeIf { it.weekStartIso == weekStartIso }
+            return if (cached != null && cached.lessons.isNotEmpty()) {
+                PronoteResult.Success(cached.lessons)
+            } else {
+                result
+            }
+        }
 
         val lessons = (result as PronoteResult.Success).value
             .mapNotNull { Mappers.mapLesson(it) }
             .sortedBy { it.startIso }
         timetableCache["$accountId|$weekStartIso"] = lessons
+        if (lessons.isNotEmpty()) local.saveWeek(accountId, weekStartIso, lessons)
         return PronoteResult.Success(lessons)
     }
+
+    override fun cachedHomework(accountId: String): List<Homework> =
+        local.loadHomework(accountId)
+
+    override fun cachedAttendance(accountId: String): List<AttendanceEntry> =
+        local.loadAttendance(accountId)
+
+    override fun cachedWeek(accountId: String): List<com.pronote.clay.domain.TimetableLesson> =
+        local.loadWeek(accountId)?.lessons.orEmpty()
+
+    override suspend fun getHomework(
+        accountId: String,
+        fromIso: String,
+        toIso: String,
+    ): PronoteResult<List<Homework>> {
+        var stored = sessions.load(accountId)
+            ?: return PronoteResult.Failure(PronoteError.SessionExpired)
+
+        var result = fetchHomework(stored, fromIso, toIso)
+        if (result is PronoteResult.Failure && sessions.refreshSession(accountId) != null) {
+            stored = sessions.load(accountId) ?: return result
+            result = fetchHomework(stored, fromIso, toIso)
+        }
+
+        if (result is PronoteResult.Failure) {
+            val cached = local.loadHomework(accountId)
+                .filter { it.dueDate.isEmpty() || it.dueDate in fromIso..toIso }
+            return if (cached.isEmpty()) result else PronoteResult.Success(cached)
+        }
+
+        val homework = (result as PronoteResult.Success).value
+            .map { Mappers.mapHomework(it) }
+            .filter { it.description.isNotBlank() || it.attachments.isNotEmpty() }
+            .sortedBy { it.sortKey }
+        local.saveHomework(accountId, homework)
+        return PronoteResult.Success(homework)
+    }
+
+    override suspend fun getAttendance(accountId: String): PronoteResult<List<AttendanceEntry>> {
+        var stored = sessions.load(accountId)
+            ?: return PronoteResult.Failure(PronoteError.SessionExpired)
+
+        var result = fetchAttendance(stored)
+        if (result is PronoteResult.Failure && sessions.refreshSession(accountId) != null) {
+            stored = sessions.load(accountId) ?: return result
+            result = fetchAttendance(stored)
+        }
+
+        if (result is PronoteResult.Failure) {
+            val cached = local.loadAttendance(accountId)
+            return if (cached.isEmpty()) result else PronoteResult.Success(cached)
+        }
+
+        val entries = (result as PronoteResult.Success).value
+            .map { Mappers.mapAttendance(it) }
+            .sortedBy { it.sortKey }
+        local.saveAttendance(accountId, entries)
+        return PronoteResult.Success(entries)
+    }
+
+    private suspend fun fetchHomework(
+        stored: SecureCredentialsManager.StoredCredentials,
+        fromIso: String,
+        toIso: String,
+    ): PronoteResult<List<PronoteHomeworkDto>> =
+        connector.fetchHomework(
+            token = stored.token.orEmpty(),
+            schoolUrl = stored.schoolUrl,
+            username = stored.username,
+            deviceUuid = stored.deviceUuid.orEmpty(),
+            fromIso = fromIso,
+            toIso = toIso,
+        )
+
+    private suspend fun fetchAttendance(
+        stored: SecureCredentialsManager.StoredCredentials,
+    ): PronoteResult<List<PronoteAttendanceDto>> =
+        connector.fetchAttendance(
+            token = stored.token.orEmpty(),
+            schoolUrl = stored.schoolUrl,
+            username = stored.username,
+            deviceUuid = stored.deviceUuid.orEmpty(),
+        )
 
     private suspend fun fetchTimetable(
         stored: SecureCredentialsManager.StoredCredentials,

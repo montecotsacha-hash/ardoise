@@ -93,6 +93,7 @@ abstract class ArdoiseWidgetProvider : AppWidgetProvider() {
                 NotesWidgetProvider::class.java,
                 SubjectsWidgetProvider::class.java,
                 TargetWidgetProvider::class.java,
+                TodayWidgetProvider::class.java,
             )
             for (providerClass in providers) {
                 val ids = manager.getAppWidgetIds(ComponentName(context, providerClass))
@@ -154,6 +155,19 @@ abstract class ArdoiseWidgetProvider : AppWidgetProvider() {
                 dark = dark,
                 dynamic = preferences.dynamicColor,
             )
+            // Le widget du jour ne lit QUE la semaine mémorisée : son rendu ne
+            // fait aucune requête, il peut donc tourner depuis le lanceur.
+            val todayLessons = if (kind == WidgetKind.TODAY) {
+                val today = java.time.LocalDate.now().toString()
+                accountId
+                    ?.let { container.getCachedWeek.execute(it) }
+                    ?.filter { it.startIso.startsWith(today) }
+                    ?.sortedBy { it.startIso }
+                    .orEmpty()
+            } else {
+                emptyList()
+            }
+
             val bitmap = WidgetArt.render(
                 kind = kind,
                 widthPx = widthPx,
@@ -163,6 +177,7 @@ abstract class ArdoiseWidgetProvider : AppWidgetProvider() {
                 snapshot = snapshot,
                 average = average,
                 historyValues = history?.takeIf { it.size >= 2 },
+                todayLessons = todayLessons,
                 palette = palette,
             )
 
@@ -232,6 +247,13 @@ class SubjectsWidgetProvider : ArdoiseWidgetProvider() {
     override val kind = WidgetKind.SUBJECTS
     override val fallbackWidthDp = 220
     override val fallbackHeightDp = 140
+}
+
+/** Emploi du temps du jour. */
+class TodayWidgetProvider : ArdoiseWidgetProvider() {
+    override val kind = WidgetKind.TODAY
+    override val fallbackWidthDp = 250
+    override val fallbackHeightDp = 160
 }
 
 /** Objectif de moyenne : la note qu'il reste à obtenir. */

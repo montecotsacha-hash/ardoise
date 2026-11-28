@@ -90,6 +90,8 @@ fun AppTheme(
     /** null follows the system setting. */
     darkTheme: Boolean? = null,
     dynamicColor: Boolean = true,
+    /** Réglage d'accessibilité : aucune apparition, aucun glissement. */
+    reduceMotion: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val dark = darkTheme ?: isSystemInDarkTheme()
@@ -129,6 +131,7 @@ fun AppTheme(
         // colour flows into the frosted chrome instead of fighting it.
         CompositionLocalProvider(
             LocalFrosted provides rememberFrostedTokens(),
+            LocalReduceMotion provides reduceMotion,
             content = content,
         )
     }

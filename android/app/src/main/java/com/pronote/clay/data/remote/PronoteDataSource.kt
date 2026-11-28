@@ -87,6 +87,41 @@ data class PronoteLessonDto(
     val memo: String? = null,
 )
 
+/**
+ * Un devoir du cahier de textes (`PageCahierDeTexte`, onglet 88).
+ *
+ * Dates ISO, consigne en texte simple : le HTML Pronote est aplati côté
+ * connecteur pour que le cache disque et l'interface n'aient rien à en savoir.
+ */
+data class PronoteHomeworkDto(
+    val id: String? = null,
+    val matiere: String? = null,
+    val nomMatiere: String? = null,
+    /** ISO date de remise. */
+    val pourLe: String? = null,
+    /** ISO date de la consigne. */
+    val donneLe: String? = null,
+    val description: String? = null,
+    val fait: Boolean = false,
+    val piecesJointes: List<String> = emptyList(),
+)
+
+/**
+ * Une absence (`kind = "absence"`, code Pronote `G` 13) ou un retard
+ * (`kind = "delay"`, code `G` 14), telle que `PagePresence` la renvoie.
+ */
+data class PronoteAttendanceDto(
+    val id: String? = null,
+    val kind: String? = null,
+    /** ISO date-heure de début. */
+    val debut: String? = null,
+    /** ISO date-heure de fin (absences) ou heure du retard. */
+    val fin: String? = null,
+    val minutes: Int = 0,
+    val justifie: Boolean = false,
+    val motif: String? = null,
+)
+
 data class PronoteAuthResult(
     /** Opaque session token — kept only in the encrypted vault. */
     val token: String,
@@ -148,6 +183,27 @@ interface PronoteDataSource {
         weekStartIso: String,
     ): PronoteResult<List<PronoteLessonDto>>
 
+    /**
+     * Cahier de textes entre deux dates ISO incluses, une requête par plage.
+     * Le connecteur choisit les semaines Pronote correspondantes.
+     */
+    suspend fun fetchHomework(
+        token: String,
+        schoolUrl: String,
+        username: String,
+        deviceUuid: String,
+        fromIso: String,
+        toIso: String,
+    ): PronoteResult<List<PronoteHomeworkDto>>
+
+    /** Absences et retards de l'année scolaire en cours. */
+    suspend fun fetchAttendance(
+        token: String,
+        schoolUrl: String,
+        username: String,
+        deviceUuid: String,
+    ): PronoteResult<List<PronoteAttendanceDto>>
+
     suspend fun logout(token: String)
 }
 
@@ -198,6 +254,26 @@ class PronoteCompatibilityLayer(private val source: PronoteDataSource) {
         weekStartIso: String,
     ): PronoteResult<List<PronoteLessonDto>> = guard {
         source.fetchTimetable(token, schoolUrl, username, deviceUuid, weekStartIso)
+    }
+
+    suspend fun fetchHomework(
+        token: String,
+        schoolUrl: String,
+        username: String,
+        deviceUuid: String,
+        fromIso: String,
+        toIso: String,
+    ): PronoteResult<List<PronoteHomeworkDto>> = guard {
+        source.fetchHomework(token, schoolUrl, username, deviceUuid, fromIso, toIso)
+    }
+
+    suspend fun fetchAttendance(
+        token: String,
+        schoolUrl: String,
+        username: String,
+        deviceUuid: String,
+    ): PronoteResult<List<PronoteAttendanceDto>> = guard {
+        source.fetchAttendance(token, schoolUrl, username, deviceUuid)
     }
 
     suspend fun logout(token: String) {

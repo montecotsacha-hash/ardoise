@@ -10,12 +10,13 @@ package com.pronote.clay.core
 object HomeBlocks {
     const val AVERAGE = "average"
     const val HISTORY = "history"
+    const val ATTENDANCE = "attendance"
     const val SUBJECTS = "subjects"
     const val GRADES = "grades"
     const val TARGET = "target"
 
     /** Ordre par défaut : l'objectif de moyenne ferme la page. */
-    val DEFAULT = listOf(AVERAGE, HISTORY, SUBJECTS, GRADES, TARGET)
+    val DEFAULT = listOf(AVERAGE, HISTORY, ATTENDANCE, SUBJECTS, GRADES, TARGET)
 
     /** Ordre stocké rendu utilisable : identifiants connus, sans doublon, tous présents. */
     fun normalize(stored: List<String>): List<String> {

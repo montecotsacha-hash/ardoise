@@ -7,6 +7,7 @@ import com.pronote.clay.core.NetworkMonitor
 import com.pronote.clay.data.PronoteRepository
 import com.pronote.clay.data.PronoteRepositoryImpl
 import com.pronote.clay.data.SessionManager
+import com.pronote.clay.data.backup.BackupManager
 import com.pronote.clay.data.local.LocalDataSource
 import com.pronote.clay.data.local.PreferencesStore
 import com.pronote.clay.data.remote.PronoteDirectDataSource
@@ -17,10 +18,13 @@ import com.pronote.clay.data.remote.UpdateChecker
 import com.pronote.clay.data.security.SecureCredentialsManager
 import com.pronote.clay.domain.CalculateGeneralAverageUseCase
 import com.pronote.clay.domain.DeleteLocalDataUseCase
+import com.pronote.clay.domain.GetAttendanceUseCase
 import com.pronote.clay.domain.GetAveragesUseCase
 import com.pronote.clay.domain.GetCachedDataUseCase
+import com.pronote.clay.domain.GetCachedWeekUseCase
 import com.pronote.clay.domain.GetGradesUseCase
 import com.pronote.clay.domain.GetHistoryUseCase
+import com.pronote.clay.domain.GetHomeworkUseCase
 import com.pronote.clay.domain.GetPeriodsUseCase
 import com.pronote.clay.domain.GetSelectedPeriodUseCase
 import com.pronote.clay.domain.LoadPeriodUseCase
@@ -122,6 +126,9 @@ class AppContainer(context: Context) {
 
     val syncManager = SyncManager(repository) { networkMonitor.isOnline() }
 
+    /** Sauvegarde chiffrée des données du compte (aucun identifiant dedans). */
+    val backup = BackupManager(local)
+
     // ---- use cases --------------------------------------------------------
 
     val login = LoginUseCase(repository)
@@ -136,6 +143,9 @@ class AppContainer(context: Context) {
     val getAverages = GetAveragesUseCase()
     val getSubjectRows = GetSubjectRowsUseCase()
     val getTimetable = GetTimetableUseCase(repository)
+    val getCachedWeek = GetCachedWeekUseCase(repository)
+    val getHomework = GetHomeworkUseCase(repository)
+    val getAttendance = GetAttendanceUseCase(repository)
     val calculateGeneralAverage = CalculateGeneralAverageUseCase()
     val getPeriods = GetPeriodsUseCase(repository)
     val getSelectedPeriod = GetSelectedPeriodUseCase(repository)

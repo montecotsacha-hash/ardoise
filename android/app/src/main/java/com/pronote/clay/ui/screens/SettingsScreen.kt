@@ -1,10 +1,15 @@
 package com.pronote.clay.ui.screens
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -29,12 +35,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,9 +51,13 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.pronote.clay.data.backup.BackupManager
 import com.pronote.clay.data.remote.UpdateStatus
+import com.pronote.clay.notifications.LocalNotifications
+import com.pronote.clay.notifications.NotificationStatus
 import com.pronote.clay.ui.components.ConfirmDeleteDialog
 import com.pronote.clay.ui.components.ClayButton
 import com.pronote.clay.ui.components.ClayDivider
@@ -58,6 +70,13 @@ import com.pronote.clay.ui.components.UpdateAvailableDialog
 import com.pronote.clay.ui.theme.ClayDimens
 import com.pronote.clay.ui.theme.frosted
 import com.pronote.clay.ui.viewmodel.HomeViewModel
+import java.text.SimpleDateFormat
+import java.time.LocalDate
+import java.util.Date
+import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * SettingsScreen — the "Paramètres" section: preferences, account actions and
@@ -92,23 +111,31 @@ fun SettingsScreen(viewModel: HomeViewModel, onBack: () -> Unit) {
 
             Spacer(Modifier.height(18.dp))
 
-            ClayReveal(index = 1) { AppearanceCard(viewModel) }
+            ClayReveal(index = 1) { NotificationsCard() }
 
             Spacer(Modifier.height(18.dp))
 
-            ClayReveal(index = 2) { SecurityCard(viewModel) }
+            ClayReveal(index = 2) { AppearanceCard(viewModel) }
 
             Spacer(Modifier.height(18.dp))
 
-            ClayReveal(index = 3) { UpdateCard(viewModel, updateStatus) }
+            ClayReveal(index = 3) { SecurityCard(viewModel) }
 
             Spacer(Modifier.height(18.dp))
 
-            ClayReveal(index = 4) { AccountCard(viewModel, onDelete = { confirmDelete = true }) }
+            ClayReveal(index = 4) { BackupCard(viewModel) }
 
             Spacer(Modifier.height(18.dp))
 
-            ClayReveal(index = 5) { PrivacyNote(viewModel) }
+            ClayReveal(index = 5) { UpdateCard(viewModel, updateStatus) }
+
+            Spacer(Modifier.height(18.dp))
+
+            ClayReveal(index = 6) { AccountCard(viewModel, onDelete = { confirmDelete = true }) }
+
+            Spacer(Modifier.height(18.dp))
+
+            ClayReveal(index = 7) { PrivacyNote(viewModel) }
         }
     }
 
@@ -225,6 +252,123 @@ private fun requestBackgroundSync(context: Context) {
     runCatching { context.startActivity(intent) }
 }
 
+/**
+ * Alertes : l'état RÉEL côté Android, le dernier essai et une preuve.
+ *
+ * Le réglage « Nouvelles notes » plus haut ne suffit pas : sans permission,
+ * sans notifications système ou avec un canal muet, rien n'arriverait. Cette
+ * carte nomme le blocage et offre le seul bouton qui le lève.
+ */
+@Composable
+private fun NotificationsCard() {
+    val context = LocalContext.current
+    var status by remember { mutableStateOf(LocalNotifications.status(context)) }
+
+    // La permission se donne dans une feuille système : on relit l'état au
+    // retour, jamais en supposant le résultat.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, context) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                status = LocalNotifications.status(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    val permission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        status = LocalNotifications.status(context)
+        if (granted) {
+            LocalNotifications.notifyTest(context)
+            status = LocalNotifications.status(context)
+        }
+    }
+
+    ClaySurface(modifier = Modifier.fillMaxWidth(), depth = 10.dp) {
+        Column(Modifier.padding(18.dp)) {
+            Section("Alertes")
+            ClaySettingRow(
+                title = status.title(),
+                description = status.hint(),
+            ) {
+                when {
+                    !status.permissionGranted && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ->
+                        ClayPill(
+                            text = "Autoriser",
+                            onClick = { permission.launch(Manifest.permission.POST_NOTIFICATIONS) },
+                        )
+
+                    !status.available -> ClayPill(
+                        text = "Ouvrir",
+                        onClick = { openNotificationSettings(context) },
+                    )
+
+                    else -> ClayPill(
+                        text = "Tester",
+                        onClick = {
+                            LocalNotifications.notifyTest(context)
+                            status = LocalNotifications.status(context)
+                        },
+                    )
+                }
+            }
+            val lastAttempt = status.lastAttemptAt
+            if (lastAttempt != null) {
+                ClayDivider()
+                Text(
+                    buildString {
+                        append(
+                            if (status.lastAttemptDelivered) {
+                                "Dernière alerte envoyée le "
+                            } else {
+                                "Dernier essai bloqué par Android le "
+                            },
+                        )
+                        append(formatAttempt(lastAttempt))
+                        append('.')
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 12.dp),
+                )
+            }
+        }
+    }
+}
+
+private fun NotificationStatus.title(): String = when {
+    !permissionGranted -> "Notifications refusées"
+    !enabled -> "Notifications coupées"
+    channelBlocked -> "Canal en sourdine"
+    else -> "Notifications autorisées"
+}
+
+private fun NotificationStatus.hint(): String = when {
+    !permissionGranted ->
+        "Android n'a pas donné la permission : aucune alerte ne peut s'afficher."
+
+    !enabled ->
+        "Les notifications d'Ardoise sont désactivées dans les réglages Android."
+
+    channelBlocked ->
+        "Le canal « Suivi scolaire » est muet : réactive-le dans les réglages Android."
+
+    else ->
+        "Une alerte locale part après chaque synchronisation qui trouve une nouvelle note."
+}
+
+private fun openNotificationSettings(context: Context) {
+    val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+        .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+    runCatching { context.startActivity(intent) }
+}
+
+private fun formatAttempt(at: Long): String =
+    SimpleDateFormat("d MMM 'à' HH:mm", Locale.FRENCH).format(Date(at))
+
 /** Thème, couleurs dynamiques et prénom affiché. */
 @Composable
 private fun AppearanceCard(viewModel: HomeViewModel) {
@@ -268,6 +412,19 @@ private fun AppearanceCard(viewModel: HomeViewModel) {
                     },
                 )
             }
+            ClayDivider()
+            ClaySettingRow(
+                title = "Réduire les animations",
+                description = "Plus d'apparitions ni de glissements : les écrans changent " +
+                    "d'un coup. Suit aussi le réglage d'accessibilité d'Android.",
+            ) {
+                Switch(
+                    checked = preferences.reduceMotion,
+                    onCheckedChange = {
+                        viewModel.updatePreferences(preferences.copy(reduceMotion = it))
+                    },
+                )
+            }
             Spacer(Modifier.height(14.dp))
             OutlinedTextField(
                 value = preferences.displayName.orEmpty(),
@@ -308,6 +465,221 @@ private fun SecurityCard(viewModel: HomeViewModel) {
         }
     }
 }
+
+/** Quelle action attend la phrase secrète. */
+private sealed interface BackupDialog {
+    data object Export : BackupDialog
+    data class Restore(val uri: Uri) : BackupDialog
+}
+
+/**
+ * Sauvegarde chiffrée : un fichier local, une phrase secrète, aucun serveur.
+ *
+ * L'export passe par le sélecteur de fichiers d'Android (SAF) : Ardoise ne
+ * demande aucune permission de stockage et l'utilisateur choisit lui-même où
+ * le fichier atterrit.
+ */
+@Composable
+private fun BackupCard(viewModel: HomeViewModel) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var dialog by remember { mutableStateOf<BackupDialog?>(null) }
+    var passphrase by remember { mutableStateOf("") }
+    // La phrase d'export attend le retour du sélecteur de fichiers : le
+    // dialogue est déjà fermé quand le fichier est réellement écrit.
+    var exportPhrase by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    var feedback by remember { mutableStateOf<String?>(null) }
+    var failed by remember { mutableStateOf(false) }
+
+    fun report(error: Throwable?) {
+        busy = false
+        failed = error != null
+        feedback = error?.message ?: "Sauvegarde terminée."
+    }
+
+    val createFile = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/octet-stream"),
+    ) { uri ->
+        val phrase = exportPhrase
+        exportPhrase = ""
+        val accountId = viewModel.container.activeAccountId()
+        if (uri == null || accountId == null) return@rememberLauncherForActivityResult
+        busy = true
+        scope.launch {
+            val outcome = withContext(Dispatchers.IO) {
+                runCatching {
+                    val bytes = viewModel.container.backup.export(accountId, phrase.toCharArray())
+                    context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
+                        ?: error("Fichier inaccessible.")
+                }
+            }
+            busy = false
+            failed = outcome.isFailure
+            feedback = if (outcome.isSuccess) {
+                "Sauvegarde chiffrée enregistrée."
+            } else {
+                "Impossible d'écrire le fichier."
+            }
+        }
+    }
+
+    val openFile = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) dialog = BackupDialog.Restore(uri)
+    }
+
+    ClaySurface(modifier = Modifier.fillMaxWidth(), depth = 10.dp) {
+        Column(Modifier.padding(18.dp)) {
+            Section("Sauvegarde")
+            Text(
+                "Tes notes, ton emploi du temps et ton travail, dans un seul fichier " +
+                    "chiffré. Tes identifiants et ta session n'y sont jamais.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(14.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(Modifier.weight(1f)) {
+                    ClayButton(
+                        text = "Exporter",
+                        onClick = {
+                            feedback = null
+                            failed = false
+                            passphrase = ""
+                            dialog = BackupDialog.Export
+                        },
+                        enabled = !busy,
+                        loading = busy,
+                    )
+                }
+                Box(Modifier.weight(1f)) {
+                    ClaySecondaryButton(
+                        text = "Restaurer",
+                        onClick = {
+                            feedback = null
+                            failed = false
+                            openFile.launch(arrayOf("application/octet-stream", "*/*"))
+                        },
+                        loading = busy,
+                    )
+                }
+            }
+            feedback?.let { message ->
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (failed) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    },
+                )
+            }
+        }
+    }
+
+    val current = dialog
+    if (current != null) {
+        AlertDialog(
+            onDismissRequest = {
+                if (!busy) {
+                    dialog = null
+                    passphrase = ""
+                }
+            },
+            title = {
+                Text(
+                    if (current is BackupDialog.Export) {
+                        "Chiffrer la sauvegarde"
+                    } else {
+                        "Déverrouiller la sauvegarde"
+                    },
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        "Choisis une phrase secrète d'au moins " +
+                            "${BackupManager.MIN_PASSPHRASE} caractères. Sans elle, le fichier " +
+                            "est illisible — même pour Ardoise. Elle n'est stockée nulle part.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = passphrase,
+                        onValueChange = { passphrase = it },
+                        label = { Text("Phrase secrète") },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        shape = MaterialTheme.shapes.large,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = passphrase.length >= BackupManager.MIN_PASSPHRASE && !busy,
+                    onClick = {
+                        val phrase = passphrase
+                        passphrase = ""
+                        dialog = null
+                        when (current) {
+                            is BackupDialog.Export -> {
+                                exportPhrase = phrase
+                                createFile.launch(defaultBackupName())
+                            }
+
+                            is BackupDialog.Restore -> {
+                                val accountId = viewModel.container.activeAccountId()
+                                if (accountId == null) {
+                                    failed = true
+                                    feedback = "Connecte-toi avant de restaurer une sauvegarde."
+                                    return@TextButton
+                                }
+                                busy = true
+                                scope.launch {
+                                    val outcome = withContext(Dispatchers.IO) {
+                                        runCatching {
+                                            val bytes = context.contentResolver
+                                                .openInputStream(current.uri)
+                                                ?.use { it.readBytes() }
+                                                ?: error("Fichier inaccessible.")
+                                            viewModel.container.backup.restore(
+                                                accountId,
+                                                bytes,
+                                                phrase.toCharArray(),
+                                            )
+                                        }
+                                    }
+                                    if (outcome.isSuccess) {
+                                        viewModel.reloadFromCache()
+                                        busy = false
+                                        failed = false
+                                        feedback = "Sauvegarde restaurée."
+                                    } else {
+                                        report(outcome.exceptionOrNull())
+                                    }
+                                }
+                            }
+                        }
+                    },
+                ) {
+                    Text(if (current is BackupDialog.Export) "Chiffrer" else "Restaurer")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { dialog = null; passphrase = "" }) {
+                    Text("Annuler")
+                }
+            },
+        )
+    }
+}
+
+private fun defaultBackupName(): String = "ardoise-${LocalDate.now()}.ard"
 
 /** Version installée, état de la vérification et téléchargement de l'APK. */
 @Composable

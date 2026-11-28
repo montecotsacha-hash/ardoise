@@ -67,6 +67,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
@@ -100,6 +102,7 @@ import com.pronote.clay.ui.components.ClaySectionTitle
 import com.pronote.clay.ui.components.ClaySurface
 import com.pronote.clay.ui.components.clay
 import com.pronote.clay.ui.theme.ClayDimens
+import com.pronote.clay.ui.theme.LocalReduceMotion
 import com.pronote.clay.ui.theme.subjectAccent
 import com.pronote.clay.ui.viewmodel.HomeUiState
 import com.pronote.clay.ui.viewmodel.HomeViewModel
@@ -132,6 +135,7 @@ fun HomeScreen(
     // Courbe de l'année, tous trimestres déjà consultés confondus.
     val history by viewModel.history.collectAsState()
     val blocks by viewModel.homeBlocks.collectAsState()
+    val attendance by viewModel.attendance.collectAsState()
 
     val success = state as? HomeUiState.Success
     val offline = state as? HomeUiState.Offline
@@ -167,7 +171,8 @@ fun HomeScreen(
     val reorder = { drag.reorder(blocksNow.value, viewModel::moveHomeBlock) }
 
     // Tremblement des autres blocs, comme les apps sur l'écran d'accueil iOS.
-    val wobble: State<Float>? = if (drag.draggedId == null) {
+    val reduceMotion = LocalReduceMotion.current
+    val wobble: State<Float>? = if (drag.draggedId == null || reduceMotion) {
         null
     } else {
         rememberInfiniteTransition(label = "tremblement").animateFloat(
@@ -253,6 +258,7 @@ fun HomeScreen(
                             snapshot = snapshot,
                             subjects = subjects,
                             history = history,
+                            attendance = attendance,
                             periodLabel = periods.firstOrNull { it.id == selectedPeriod }?.name,
                             periodEmptyHint = periodEmptyHint,
                             onSelectGrade = { selectedGrade = it },
@@ -419,6 +425,7 @@ private fun HomeBlock(
     snapshot: SchoolSnapshot?,
     subjects: List<SubjectRow>,
     history: List<HistoryPoint>,
+    attendance: List<com.pronote.clay.domain.AttendanceEntry>,
     periodLabel: String?,
     periodEmptyHint: String?,
     onSelectGrade: (Grade) -> Unit,
@@ -437,12 +444,130 @@ private fun HomeBlock(
         }
 
         HomeBlocks.HISTORY -> HomeHistoryBlock(history)
+        HomeBlocks.ATTENDANCE -> HomeAttendanceBlock(attendance)
         HomeBlocks.SUBJECTS -> HomeSubjectsBlock(subjects, periodEmptyHint)
         HomeBlocks.GRADES -> HomeGradesBlock(snapshot, periodEmptyHint, onSelectGrade)
 
         // L'objectif de moyenne ferme la page par défaut : c'est la question
         // qu'on se pose après avoir lu ses notes, pas avant.
         HomeBlocks.TARGET -> HomeTargetBlock(average?.value, snapshot)
+    }
+}
+
+/**
+ * « Vie scolaire » — absences et retards, les plus récents d'abord.
+ *
+ * Le bloc répond à la question qu'on se pose en ouvrant l'app (« ai-je manqué
+ * quelque chose ? ») avant le détail : un total, puis quelques lignes.
+ */
+@Composable
+private fun HomeAttendanceBlock(entries: List<com.pronote.clay.domain.AttendanceEntry>) {
+    ClayReveal(index = 4) {
+        Column {
+            ClaySectionTitle("Vie scolaire")
+            Spacer(Modifier.height(10.dp))
+            if (entries.isEmpty()) {
+                ClayEmptyState(
+                    "Rien à signaler",
+                    "Aucune absence ni retard enregistré pour l'instant.",
+                )
+            } else {
+                ClaySurface(modifier = Modifier.fillMaxWidth(), depth = 8.dp) {
+                    Column(Modifier.padding(18.dp)) {
+                        val absences = entries.count {
+                            it.kind == com.pronote.clay.domain.AttendanceKind.ABSENCE
+                        }
+                        Text(
+                            attendanceSummary(absences, entries.size - absences, entries),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        entries.sortedByDescending { it.sortKey }.take(4).forEach { entry ->
+                            AttendanceRow(entry)
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(ClayDimens.SectionGap))
+        }
+    }
+}
+
+/** « 3 absences · 2 retards · 6 h 30 manquées », au pluriel près. */
+private fun attendanceSummary(
+    absences: Int,
+    delays: Int,
+    entries: List<com.pronote.clay.domain.AttendanceEntry>,
+): String {
+    val parts = mutableListOf<String>()
+    if (absences > 0) parts += if (absences == 1) "1 absence" else "$absences absences"
+    if (delays > 0) parts += if (delays == 1) "1 retard" else "$delays retards"
+    val minutes = entries.sumOf { it.minutes }
+    if (minutes > 0) parts += "${durationLabel(minutes)} manquées"
+    return parts.joinToString(" · ")
+}
+
+private fun durationLabel(minutes: Int): String {
+    val hours = minutes / 60
+    val rest = minutes % 60
+    return when {
+        hours == 0 -> "$rest min"
+        rest == 0 -> "$hours h"
+        else -> "$hours h $rest"
+    }
+}
+
+/** Une ligne : le jour, le type, la durée et l'état de justification. */
+@Composable
+private fun AttendanceRow(entry: com.pronote.clay.domain.AttendanceEntry) {
+    val kind = if (entry.kind == com.pronote.clay.domain.AttendanceKind.ABSENCE) {
+        "Absence"
+    } else {
+        "Retard"
+    }
+    val duration = durationLabel(entry.minutes)
+    val justified = if (entry.justified) "justifiée" else "non justifiée"
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp)
+            // Une seule annonce vocale par ligne, au lieu de trois fragments.
+            .semantics(mergeDescendants = true) {
+                contentDescription = "$kind du ${shortDate(entry.date)}, $duration, $justified"
+            },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(shortDate(entry.date), style = MaterialTheme.typography.bodyMedium)
+            Text(
+                buildString {
+                    append(kind)
+                    if (entry.minutes > 0) append(" · ").append(duration)
+                    entry.reason?.takeIf { it.isNotBlank() }?.let { append(" · ").append(it) }
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        ClayPill(
+            text = if (entry.justified) "Justifiée" else "À justifier",
+            tint = if (entry.justified) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.error
+            },
+        )
+    }
+}
+
+/** « lun. 30 nov. », ou la date brute si elle n'est pas lisible. */
+private fun shortDate(iso: String): String {
+    if (iso.isBlank()) return "Date inconnue"
+    return try {
+        val parsed = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(iso) ?: return iso
+        SimpleDateFormat("EEE d MMM", Locale.FRENCH).format(parsed)
+    } catch (_: Exception) {
+        iso
     }
 }
 

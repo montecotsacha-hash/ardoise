@@ -132,6 +132,17 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_target" />
         </receiver>
+
+        <receiver
+            android:name=".widgets.TodayWidgetProvider"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_today" />
+        </receiver>
     </application>
 
 </manifest>

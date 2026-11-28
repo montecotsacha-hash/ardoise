@@ -40,6 +40,8 @@ sealed interface TimetableUiState {
 class TimetableViewModel(
     private val loadTimetable: suspend (accountId: String, weekStartIso: String) -> PronoteResult<List<TimetableLesson>>,
     private val activeAccountId: () -> String?,
+    // Redessine le widget « Aujourd'hui » : sa semaine vient de changer.
+    private val onLessonsLoaded: () -> Unit = {},
 ) : ViewModel() {
 
     /** Production wiring: same behaviour through the app container. */
@@ -48,6 +50,7 @@ class TimetableViewModel(
             container.getTimetable.execute(accountId, weekStartIso)
         },
         activeAccountId = container::activeAccountId,
+        onLessonsLoaded = container::refreshWidgets,
     )
 
     private val _state = MutableStateFlow<TimetableUiState>(TimetableUiState.Loading)
@@ -106,6 +109,8 @@ class TimetableViewModel(
                         weekStart = start,
                         lessons = result.value,
                     )
+                    // Seule la semaine en cours alimente le widget du jour.
+                    if (start == mondayOf(LocalDate.now())) onLessonsLoaded()
                 }
                 is PronoteResult.Failure -> {
                     Logger.warn("Timetable load failed")

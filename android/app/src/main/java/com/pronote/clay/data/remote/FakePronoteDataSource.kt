@@ -27,6 +27,13 @@ class FakePronoteDataSource : PronoteDataSource {
         return SimpleDateFormat("yyyy-MM-dd", Locale.US).format(calendar.time)
     }
 
+    /** Date de démonstration dans le futur (devoirs à rendre). */
+    private fun isoInDays(days: Int): String {
+        val calendar = Calendar.getInstance()
+        calendar.add(Calendar.DAY_OF_YEAR, days)
+        return SimpleDateFormat("yyyy-MM-dd", Locale.US).format(calendar.time)
+    }
+
     /** The mock school data — close to the product's reference example. */
     private fun buildPayload(schoolUrl: String): PronoteRawPayload {
         val schoolName =
@@ -233,6 +240,75 @@ class FakePronoteDataSource : PronoteDataSource {
             PronoteLessonDto("maths", "Mathématiques", "Mme Dubois", "B206", "Groupe B", at(1, 14, 0), at(1, 15, 0)),
         )
         return PronoteResult.Success(lessons)
+    }
+
+    override suspend fun fetchHomework(
+        token: String,
+        schoolUrl: String,
+        username: String,
+        deviceUuid: String,
+        fromIso: String,
+        toIso: String,
+    ): PronoteResult<List<PronoteHomeworkDto>> {
+        delay(320)
+        if (token.isBlank()) return PronoteResult.Failure(PronoteError.SessionExpired)
+
+        val homework = listOf(
+            PronoteHomeworkDto(
+                "h1", "maths", "Mathématiques", isoInDays(1), isoDaysAgo(0),
+                "Terminer l'exercice 4 p. 112 et revoir la démonstration du cours.",
+            ),
+            PronoteHomeworkDto(
+                "h2", "francais", "Français", isoInDays(2), isoDaysAgo(1),
+                "Lire les chapitres 3 et 4, puis préparer trois citations pour le commentaire.",
+                piecesJointes = listOf("chapitre-3.pdf"),
+            ),
+            PronoteHomeworkDto(
+                "h3", "physique", "Physique-Chimie", isoInDays(3), isoDaysAgo(1),
+                "Compte rendu du TP dosage : protocole, calculs et incertitudes.",
+                piecesJointes = listOf("grille-compte-rendu.pdf"),
+            ),
+            PronoteHomeworkDto(
+                "h4", "anglais", "Anglais", isoInDays(4), isoDaysAgo(2),
+                "Apprendre le vocabulaire de la séquence 4 — test écrit.",
+            ),
+            PronoteHomeworkDto(
+                "h5", "histoire", "Histoire-Géo", isoInDays(6), isoDaysAgo(3),
+                "Fiche de révision : la France des années 1930.",
+                fait = true,
+            ),
+            PronoteHomeworkDto(
+                "h6", "ses", "SES", isoInDays(0), isoDaysAgo(4),
+                "Chercher un article de presse sur le marché du travail.",
+            ),
+        )
+        return PronoteResult.Success(homework.filter { it.pourLe.orEmpty() >= fromIso })
+    }
+
+    override suspend fun fetchAttendance(
+        token: String,
+        schoolUrl: String,
+        username: String,
+        deviceUuid: String,
+    ): PronoteResult<List<PronoteAttendanceDto>> {
+        delay(280)
+        if (token.isBlank()) return PronoteResult.Failure(PronoteError.SessionExpired)
+
+        val entries = listOf(
+            PronoteAttendanceDto(
+                "a1", "absence", "${isoDaysAgo(3)}T08:00", "${isoDaysAgo(3)}T10:00",
+                120, justifie = true, motif = "Rendez-vous médical",
+            ),
+            PronoteAttendanceDto(
+                "a2", "delay", "${isoDaysAgo(6)}T08:12", null,
+                12, justifie = false, motif = "Transport",
+            ),
+            PronoteAttendanceDto(
+                "a3", "absence", "${isoDaysAgo(12)}T13:30", "${isoDaysAgo(12)}T15:00",
+                90, justifie = false,
+            ),
+        )
+        return PronoteResult.Success(entries)
     }
 
     override suspend fun logout(token: String) {

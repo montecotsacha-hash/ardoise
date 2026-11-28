@@ -1,12 +1,17 @@
 package com.pronote.clay.data
 
+import com.pronote.clay.data.remote.PronoteAttendanceDto
 import com.pronote.clay.data.remote.PronoteGradeDto
+import com.pronote.clay.data.remote.PronoteHomeworkDto
 import com.pronote.clay.data.remote.PronoteLessonDto
 import com.pronote.clay.data.remote.PronoteStudentDto
 import com.pronote.clay.data.remote.PronoteSubjectAverageDto
 import com.pronote.clay.data.remote.PronoteSubjectDto
+import com.pronote.clay.domain.AttendanceEntry
+import com.pronote.clay.domain.AttendanceKind
 import com.pronote.clay.domain.AverageSource
 import com.pronote.clay.domain.Grade
+import com.pronote.clay.domain.Homework
 import com.pronote.clay.domain.Student
 import com.pronote.clay.domain.Subject
 import com.pronote.clay.domain.SubjectAverage
@@ -59,6 +64,32 @@ object Mappers {
         period = dto.periode ?: "T2",
         source = AverageSource.OFFICIAL,
     )
+
+    fun mapHomework(dto: PronoteHomeworkDto): Homework = Homework(
+        id = dto.id?.takeIf { it.isNotBlank() }
+            ?: "${dto.pourLe.orEmpty()}|${dto.description.orEmpty().take(40)}",
+        subjectName = dto.nomMatiere?.trim()?.takeUnless { it.isEmpty() } ?: "Devoir",
+        description = dto.description.orEmpty().trim(),
+        dueDate = dto.pourLe.orEmpty(),
+        givenDate = dto.donneLe.orEmpty(),
+        done = dto.fait,
+        attachments = dto.piecesJointes,
+    )
+
+    fun mapAttendance(dto: PronoteAttendanceDto): AttendanceEntry {
+        val start = dto.debut?.takeIf { it.length >= 10 }
+        val end = dto.fin?.takeIf { it.length >= 16 }
+        return AttendanceEntry(
+            id = dto.id?.takeIf { it.isNotBlank() } ?: "${dto.kind}|${dto.debut.orEmpty()}",
+            kind = if (dto.kind == "delay") AttendanceKind.DELAY else AttendanceKind.ABSENCE,
+            date = start?.take(10).orEmpty(),
+            startTime = start?.takeIf { it.length >= 16 }?.substring(11, 16),
+            endTime = end?.substring(11, 16),
+            minutes = dto.minutes,
+            justified = dto.justifie,
+            reason = dto.motif?.trim()?.takeUnless { it.isEmpty() },
+        )
+    }
 
     fun mapLesson(dto: PronoteLessonDto): TimetableLesson? {
         val start = dto.debut?.takeIf { it.length >= 16 } ?: return null
