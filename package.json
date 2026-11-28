@@ -11,7 +11,9 @@
     "check:privacy": "bash scripts/check-privacy.sh",
     "typecheck": "tsc -b --noEmit",
     "format": "prettier --write .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy:site": "bash scripts/deploy-site.sh",
+    "verify:site": "bash scripts/verify-site.sh"
   },
   "dependencies": {
     "@convex-dev/auth": "^0.0.90",

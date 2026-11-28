@@ -116,6 +116,24 @@ npm run build      # dist/ -> à recopier dans deploy/assets/
 npm test           # cohérence des versions, manifeste, confidentialité
 ```
 
+### Publier le site
+
+Le déploiement part du dépôt, jamais d'une copie de travail plus ancienne
+(un worktree laissé en 1.6.9 a déjà servi une page périmée pendant une
+publication) :
+
+```bash
+bun run deploy:site     # build + deploy/assets + garde de version
+bun run verify:site     # après déploiement : page, bundle et /version.json
+```
+
+`deploy:site` reconstruit `deploy/assets` depuis `src/version.ts`, échoue si
+le bundle ne porte pas la version courante, et aligne le dossier lu par
+l'outil de déploiement (`--mirror-to <dossier>`, automatique depuis un
+workspace Freebuff). `verify:site` échoue tant que la page publique
+n'annonce pas la version attendue. `bun run test` refuse en plus un
+`deploy/assets` laissé sur un ancien build (`src/deploy-guard.test.ts`).
+
 Déploiement : le Worker de `deploy/` sert `deploy/assets/`, l'APK depuis R2 et
 le manifeste de version. Un APK se dépose sans redéployer le site :
 
