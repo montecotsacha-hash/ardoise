@@ -22,3 +22,6 @@ android/.gradle/
 
 # Cache du compilateur Kotlin (artefact local)
 android/.kotlin/
+
+# Journaux temporaires (CI, débogage)
+*.log
