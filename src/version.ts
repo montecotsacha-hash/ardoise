@@ -3,6 +3,6 @@
  * réutilisé : c'est lui qui rend un changement de version visible d'un coup
  * d'œil sur le site, dans les releases et dans CHANGELOG.md.
  */
-export const VERSION = "1.6.11";
-export const VERSION_CODENAME = "Quille";
+export const VERSION = "1.6.12";
+export const VERSION_CODENAME = "Ralingue";
 export const VERSION_LABEL = `${VERSION} « ${VERSION_CODENAME} »`;
