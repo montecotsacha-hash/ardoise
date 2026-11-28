@@ -1,5 +1,6 @@
 package com.pronote.clay.widgets
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -10,7 +11,9 @@ import android.graphics.RadialGradient
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Typeface
+import android.os.Build
 import com.pronote.clay.core.AverageCalculator
+import com.pronote.clay.core.GradeTarget
 import com.pronote.clay.domain.AverageSource
 import com.pronote.clay.domain.AverageSummary
 import com.pronote.clay.domain.Grade
@@ -21,8 +24,8 @@ import java.util.Locale
 import kotlin.math.max
 import kotlin.math.min
 
-/** The four widget flavors the launcher offers. */
-enum class WidgetKind { AVERAGE, CURVE, DUO, GRADE }
+/** Les saveurs proposées par le lanceur. */
+enum class WidgetKind { AVERAGE, CURVE, DUO, GRADE, NOTES, SUBJECTS, TARGET }
 
 /**
  * WidgetArt — hand-drawn art for the home-screen widgets.
@@ -54,7 +57,8 @@ object WidgetArt {
     /** Extra room reserved next to the number for the unit and the delta pill. */
     private const val NUMBER_GUTTER = 0.62f
 
-    private class Palette(
+    /** Palette d'une carte : couleurs d'encre, de fond et d'accent. */
+    class Palette(
         val top: Int,
         val bottom: Int,
         val text: Int,
@@ -116,11 +120,13 @@ object WidgetArt {
         snapshot: SchoolSnapshot?,
         average: AverageSummary?,
         historyValues: List<Double>? = null,
+        /** Palette explicite : le téléphone l'impose, le thème de l'app décide. */
+        palette: Palette? = null,
     ): Bitmap {
         val w = max(widthPx, 48)
         val h = max(heightPx, 48)
         val d = max(density, 1f)
-        val palette = if (dark) Dark else Light
+        val palette = palette ?: if (dark) Dark else Light
 
         val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
@@ -173,6 +179,9 @@ object WidgetArt {
             WidgetKind.CURVE -> drawCurve(canvas, content, d, palette, values)
             WidgetKind.DUO -> drawDuo(canvas, content, d, palette, snapshot, average, values)
             WidgetKind.GRADE -> drawGrade(canvas, content, d, palette, snapshot)
+            WidgetKind.NOTES -> drawNotes(canvas, content, d, palette, snapshot)
+            WidgetKind.SUBJECTS -> drawSubjects(canvas, content, d, palette, snapshot)
+            WidgetKind.TARGET -> drawTarget(canvas, content, d, palette, snapshot, average)
         }
 
         // Hairline following the rounded edge — the glass contour.
@@ -579,6 +588,150 @@ object WidgetArt {
                 pathEffect = android.graphics.DashPathEffect(floatArrayOf(9f * d, 9f * d), 0f)
             },
         )
+    }
+
+
+    /**
+     * Palette adaptée au téléphone : couleurs Material You quand l'utilisateur
+     * les a activées et qu'Android 12+ les fournit, palette Clay sinon.
+     *
+     * Sans ça, les widgets gardaient le violet de l'app même quand le thème du
+     * téléphone (clair, sombre, couleur d'accent) changeait.
+     */
+    fun paletteFor(context: Context, dark: Boolean, dynamic: Boolean): Palette {
+        val base = if (dark) Dark else Light
+        if (!dynamic || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return base
+
+        fun system(id: Int, fallback: Int): Int =
+            runCatching { context.getColor(id) }.getOrDefault(fallback)
+
+        val text = system(
+            if (dark) android.R.color.system_neutral1_50 else android.R.color.system_neutral1_900,
+            base.text,
+        )
+        val muted = system(
+            if (dark) android.R.color.system_neutral2_200 else android.R.color.system_neutral2_700,
+            base.muted,
+        )
+        return Palette(
+            top = system(
+                if (dark) android.R.color.system_neutral1_800 else android.R.color.system_neutral1_50,
+                base.top,
+            ),
+            bottom = system(
+                if (dark) android.R.color.system_neutral1_900 else android.R.color.system_neutral1_100,
+                base.bottom,
+            ),
+            text = text,
+            muted = muted,
+            accent = system(android.R.color.system_accent1_200, base.accent),
+            positive = system(android.R.color.system_accent3_300, base.positive),
+            negative = system(android.R.color.system_accent2_300, base.negative),
+            sheenAlpha = if (dark) 0.10f else 0.55f,
+            hairline = if (dark) 0x2EFFFFFF else 0x66000000,
+            divider = withAlpha(muted, 0.25f),
+            weak = withAlpha(muted, 0.55f),
+            lightCard = !dark,
+        )
+    }
+
+    /** Jusqu'à trois notes récentes : la matière à gauche, la note à droite. */
+    private fun drawNotes(
+        canvas: Canvas, c: RectF, d: Float, p: Palette, snapshot: SchoolSnapshot?,
+    ) {
+        val grades = snapshot?.grades.orEmpty().sortedByDescending { it.date }
+        if (grades.isEmpty()) {
+            drawEmpty(canvas, c, d, p, "La prochaine note s'affichera ici")
+            return
+        }
+        val eyebrowH = drawEyebrowIfRoom(canvas, c, d, p, "DERNIÈRES NOTES")
+        val rows = grades.take(3)
+        // Les rangées se partagent la hauteur disponible : avec un plafond
+        // fixe, la troisième note sortait de la carte et n'était pas dessinée.
+        val rowH = (c.height() - eyebrowH - 4f * d) / rows.size
+        val namePaint = textPaint(11.5f * d, p.text, family = "sans-serif-medium")
+        val valuePaint = numberPaint(min(rowH * 0.60f, 18f * d), inkColor(p), d)
+        rows.forEachIndexed { index, grade ->
+            val top = c.top + eyebrowH + 2f * d + rowH * index
+            val subject = snapshot?.subjects?.firstOrNull { it.id == grade.subjectId }?.name ?: "Note"
+            drawTextTop(
+                canvas, fit(subject, namePaint, c.width() * 0.62f),
+                c.left, top + rowH * 0.20f, namePaint,
+            )
+            val value = AverageCalculator.formatGrade(grade.value, grade.maxValue)
+            drawTextTop(canvas, value, c.right - valuePaint.measureText(value), top + rowH * 0.06f, valuePaint)
+        }
+    }
+
+    /** Trois matières et leur moyenne, avec la pastille de couleur. */
+    private fun drawSubjects(
+        canvas: Canvas, c: RectF, d: Float, p: Palette, snapshot: SchoolSnapshot?,
+    ) {
+        val rows = snapshot?.subjectAverages.orEmpty().sortedByDescending { it.value }
+        if (snapshot == null || rows.isEmpty()) {
+            drawEmpty(canvas, c, d, p, "Tes moyennes par matière")
+            return
+        }
+        val eyebrowH = drawEyebrowIfRoom(canvas, c, d, p, "MOYENNES PAR MATIÈRE")
+        val shown = rows.take(3)
+        val rowH = (c.height() - eyebrowH - 4f * d) / shown.size
+        val namePaint = textPaint(11.5f * d, p.text, family = "sans-serif-medium")
+        val valuePaint = numberPaint(min(rowH * 0.58f, 17f * d), inkColor(p), d)
+        shown.forEachIndexed { index, average ->
+            val subject = snapshot.subjects.firstOrNull { it.id == average.subjectId }
+            val top = c.top + eyebrowH + 2f * d + rowH * index
+            canvas.drawCircle(
+                c.left + 3f * d, top + rowH * 0.40f, 3.2f * d,
+                Paint(Paint.ANTI_ALIAS_FLAG).apply { color = accentFor(subject?.colorIndex ?: 0) },
+            )
+            drawTextTop(
+                canvas, fit(subject?.name ?: "Matière", namePaint, c.width() * 0.66f),
+                c.left + 11f * d, top + rowH * 0.18f, namePaint,
+            )
+            val value = AverageCalculator.formatAverage(average.value)
+            drawTextTop(canvas, value, c.right - valuePaint.measureText(value), top + rowH * 0.05f, valuePaint)
+        }
+    }
+
+    /** Objectif de moyenne : la note qu'il reste à obtenir au prochain contrôle. */
+    private fun drawTarget(
+        canvas: Canvas, c: RectF, d: Float, p: Palette,
+        snapshot: SchoolSnapshot?, average: AverageSummary?,
+    ) {
+        if (snapshot == null || average == null) {
+            drawEmpty(canvas, c, d, p, "Dis quelle moyenne tu vises")
+            return
+        }
+        val weight = GradeTarget.weightOf(
+            snapshot.grades.filter { it.countsTowardAverage }.map { it.coefficient },
+        )
+        if (weight <= 0.0) {
+            drawEmpty(canvas, c, d, p, "Ajoute une note pour calculer")
+            return
+        }
+        val target = 14.0
+        val required = GradeTarget.required(average.value, weight, 1.0, target)
+        val reached = required != null && GradeTarget.isAlreadyReached(required)
+        val reachable = required != null && GradeTarget.isReachable(required)
+        val text = when {
+            required == null -> "—"
+            reached -> "Atteint"
+            !reachable -> "—"
+            else -> AverageCalculator.formatAverage(required)
+        }
+        val eyebrowH = drawEyebrowIfRoom(
+            canvas, c, d, p, "OBJECTIF " + AverageCalculator.formatAverage(target),
+        )
+        val unit = if (required != null && !reached && reachable) "/20" else ""
+        val size = min((c.height() - eyebrowH) / 1.9f, 40f * d).coerceAtLeast(16f * d)
+        drawValue(canvas, c.left, c.top + eyebrowH + 4f * d, text, unit, size, d, p, inkColor(p))
+        if (c.height() > 96f * d) {
+            val hint = bodyPaint(10.5f * d, p)
+            drawTextTop(
+                canvas, fit("au prochain contrôle", hint, c.width()),
+                c.left, c.bottom - height(hint), hint,
+            )
+        }
     }
 
     // ---- text helpers -----------------------------------------------------

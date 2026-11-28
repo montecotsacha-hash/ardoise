@@ -11,6 +11,7 @@ la navigation et au papier — rien de plus.
 
 ## Versions
 
+- `1.6.13` — « Sillage » — 28 novembre 2026 : les widgets suivent enfin le téléphone — les couleurs Material You quand elles sont activées, la vraie courbe d'évolution reprise du graphique de l'application, et trois widgets de plus (dernières notes, moyennes par matière, objectif de moyenne). La session Pronote ne se déconnecte plus : un jeton refusé est rejoué trois fois, avec une pause croissante, avant d'abandonner. Les blocs du tableau de bord se déplacent par appui long puis glissement, l'objectif de moyenne passe en bas de page, et le bouton d'actualisation disparaît — la synchronisation reste silencieuse.
 - `1.6.12` — « Ralingue » — 28 novembre 2026 : retrouver son établissement ne demande plus de connaître l'adresse Pronote — il suffit d'écrire sa ville pour voir la liste des établissements du secteur (filtrable par nom, et les dernières recherches restent consultables hors ligne) ; un QR code sur la page de connexion de l'établissement remplit l'adresse ; un bouton « Vérifier cette adresse » explique ce qui bloque quand la connexion échoue ; Android propose enfin l'identifiant et le mot de passe enregistrés. Une carte « Objectif de moyenne » indique quelle note il reste à obtenir pour atteindre la moyenne visée.
 - `1.6.11` — « Quille » — 27 novembre 2026 : après une mise à jour, Pronote pouvait suspendre temporairement les connexions — l'app enchaînait plusieurs tentatives (jeton puis mot de passe, à chaque synchro de fond) et affichait une panne vague. Elle s'arrête maintenant dès le refus, ne renvoie plus rien pendant trente minutes et explique clairement qu'il faut attendre avant de réessayer. Le site de téléchargement reprend par ailleurs le design plat de l'application (mêmes couleurs, mêmes cartes, mode sombre).
 - `1.6.10` — « Nasse » — 27 novembre 2026 : les notes ajoutées après coup au 1er trimestre mettent enfin sa moyenne à jour — la synchro suit le trimestre affiché et non plus celui du serveur. Et si Pronote n'a pas encore recalculé sa moyenne officielle, l'app affiche la moyenne recalculée à partir des notes fraîchement arrivées au lieu de rester figée sur l'ancienne.
@@ -29,4 +30,5 @@ la navigation et au papier — rien de plus.
 
 ## Liste de réserve (noms pas encore utilisés)
 
-*(vide : « Ralingue » était le dernier nom en réserve — en ajouter un avant la prochaine version.)*
+- `Pli`
+- `Étambot`

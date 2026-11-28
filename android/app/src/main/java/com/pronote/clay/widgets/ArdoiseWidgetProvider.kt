@@ -90,6 +90,9 @@ abstract class ArdoiseWidgetProvider : AppWidgetProvider() {
                 CurveWidgetProvider::class.java,
                 DuoWidgetProvider::class.java,
                 GradeWidgetProvider::class.java,
+                NotesWidgetProvider::class.java,
+                SubjectsWidgetProvider::class.java,
+                TargetWidgetProvider::class.java,
             )
             for (providerClass in providers) {
                 val ids = manager.getAppWidgetIds(ComponentName(context, providerClass))
@@ -118,6 +121,11 @@ abstract class ArdoiseWidgetProvider : AppWidgetProvider() {
             val snapshot = accountId?.let { container.getCachedData.execute(it) }
             val average = container.calculateGeneralAverage.execute(snapshot)
             val preferences = container.preferences.load()
+            // La courbe du widget est CELLE de l'app : historique fusionné de
+            // tous les trimestres consultés, jamais une série reconstruite.
+            val history = accountId
+                ?.let { container.getHistory.execute(it, com.pronote.clay.data.HistoryPeriods.ALL_DAYS) }
+                ?.map { it.value }
 
             val dark = when (preferences.darkTheme) {
                 true -> true
@@ -141,6 +149,11 @@ abstract class ArdoiseWidgetProvider : AppWidgetProvider() {
                 widthPx = max(1, (widthPx * scale).toInt())
                 heightPx = max(1, (heightPx * scale).toInt())
             }
+            val palette = WidgetArt.paletteFor(
+                context,
+                dark = dark,
+                dynamic = preferences.dynamicColor,
+            )
             val bitmap = WidgetArt.render(
                 kind = kind,
                 widthPx = widthPx,
@@ -149,6 +162,8 @@ abstract class ArdoiseWidgetProvider : AppWidgetProvider() {
                 dark = dark,
                 snapshot = snapshot,
                 average = average,
+                historyValues = history?.takeIf { it.size >= 2 },
+                palette = palette,
             )
 
             return RemoteViews(context.packageName, R.layout.widget_frame).apply {
@@ -203,4 +218,25 @@ class GradeWidgetProvider : ArdoiseWidgetProvider() {
     override val kind = WidgetKind.GRADE
     override val fallbackWidthDp = 180
     override val fallbackHeightDp = 160
+}
+
+/** Trois dernières notes. */
+class NotesWidgetProvider : ArdoiseWidgetProvider() {
+    override val kind = WidgetKind.NOTES
+    override val fallbackWidthDp = 220
+    override val fallbackHeightDp = 140
+}
+
+/** Moyennes par matière. */
+class SubjectsWidgetProvider : ArdoiseWidgetProvider() {
+    override val kind = WidgetKind.SUBJECTS
+    override val fallbackWidthDp = 220
+    override val fallbackHeightDp = 140
+}
+
+/** Objectif de moyenne : la note qu'il reste à obtenir. */
+class TargetWidgetProvider : ArdoiseWidgetProvider() {
+    override val kind = WidgetKind.TARGET
+    override val fallbackWidthDp = 180
+    override val fallbackHeightDp = 130
 }

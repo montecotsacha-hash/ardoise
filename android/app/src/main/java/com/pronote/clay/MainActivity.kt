@@ -39,6 +39,10 @@ class MainActivity : ComponentActivity() {
     /** true = the lock screen replaces the app (set from the user preferences). */
     private val locked = mutableStateOf(false)
 
+    /** Thème et couleurs avec lesquels les widgets ont été dessinés la dernière fois. */
+    private var widgetDark: Boolean? = null
+    private var widgetDynamic: Boolean? = null
+
     /** Device-credential fallback for Android 8 (API 26-27), without BiometricPrompt. */
     private val credentialLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -99,6 +103,22 @@ class MainActivity : ComponentActivity() {
             locked.value = false
         } else {
             credentialLauncher.launch(intent)
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Les widgets sont des bitmaps : ils ne suivent pas le thème tout
+        // seuls. On les redessine quand le mode sombre ou les couleurs
+        // dynamiques du téléphone ont changé pendant que l'app était fermée.
+        val container = (application as PronoteApp).container
+        val preferences = container.preferences.load()
+        val dark = preferences.darkTheme
+        val dynamic = preferences.dynamicColor
+        if (dark != widgetDark || dynamic != widgetDynamic) {
+            widgetDark = dark
+            widgetDynamic = dynamic
+            container.refreshWidgets()
         }
     }
 

@@ -40,16 +40,16 @@ un compte Play public personnel gratuit :
 | Élément                     | Valeur                                                                                     |
 | --------------------------- | ------------------------------------------------------------------------------------------ |
 | `applicationId`             | `com.pronote.clay`                                                                         |
-| Version                     | 1.6.12 « Ralingue » (versionCode 25)                                                         |
+| Version                     | 1.6.13 « Sillage » (versionCode 26)                                                          |
 | Android minimum / cible     | API 26 (8.0) / API 35                                                                      |
-| APK signé (site + releases) | `Ardoise.apk` — SHA-256 `dceebe83ae94d4d1508ea40867716dbff2585a38277678295f1286519304363c` |
-| Bundle pour magasins        | `Ardoise.aab` — SHA-256 `81ca27d9fb6cc04134983076498f5033b255b0864e4e973b1e6d22a6077736c0` |
+| APK signé (site + releases) | `Ardoise.apk` — SHA-256 `80089e65e24b672e19e30413a4a1005db337ce723b42a938e72fcd3a0abd7134` |
+| Bundle pour magasins        | `Ardoise.aab` — SHA-256 `b31a868a36302fb02edd889989c3c7b61a7eff82374c9165bea254146014e87e` |
 | Clé d'upload                | `android/app/upload-keystore.jks` (RSA 4096, valable 30 ans, créée le 14/11/2026), hors git |
 | Mots de passe de la clé     | `android/app/keystore.properties`, hors git                                                |
 | Captures d'écran            | `screenshots/app/` — captures réelles de l'app sur émulateur 720×1560 (Play, magasins, Github) |
 | Page de téléchargement      | <https://ardoise.freebuff.page>                                                            |
 
-Note : la page publique sert déjà cette version — `/version.json` annonce `versionCode` 25
+Note : la page publique sert déjà cette version — `/version.json` annonce `versionCode` 26
 et l'empreinte du fichier téléchargé est identique à celle de la release.
 
 ## Nommage des versions

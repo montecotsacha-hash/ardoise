@@ -128,6 +128,47 @@ class WidgetArtTest {
     }
 
     @Test
+    fun `les nouveaux widgets peignent leur contenu`() {
+        val withAverages = snapshot().copy(
+            subjectAverages = listOf(
+                com.pronote.clay.domain.SubjectAverage(
+                    "m", 15.2, "T1", AverageSource.OFFICIAL,
+                ),
+            ),
+        )
+        for (kind in listOf(WidgetKind.NOTES, WidgetKind.SUBJECTS, WidgetKind.TARGET)) {
+            val bitmap = WidgetArt.render(
+                kind = kind,
+                widthPx = 400,
+                heightPx = 220,
+                density = 2f,
+                dark = false,
+                snapshot = withAverages,
+                average = average,
+            )
+            assertEquals(255, Color.alpha(bitmap.getPixel(200, 110)))
+            assertTrue(
+                "$kind doit peindre de l'encre",
+                countNear(bitmap, 0xFF2A2240.toInt(), 120) > 10,
+            )
+        }
+    }
+
+    @Test
+    fun `la palette du telephone reste lisible en clair comme en sombre`() {
+        val context = org.robolectric.RuntimeEnvironment.getApplication()
+        for (dark in listOf(false, true)) {
+            val palette = WidgetArt.paletteFor(context, dark = dark, dynamic = true)
+            assertEquals(dark, !palette.lightCard)
+            // Encre et fond ne doivent jamais se confondre.
+            val distance = Math.abs(Color.red(palette.text) - Color.red(palette.top)) +
+                Math.abs(Color.green(palette.text) - Color.green(palette.top)) +
+                Math.abs(Color.blue(palette.text) - Color.blue(palette.top))
+            assertTrue("encre illisible sur le fond ($dark)", distance > 120)
+        }
+    }
+
+    @Test
     fun `an empty state still renders a clean card`() {
         for (kind in WidgetKind.entries) {
             val bitmap = render(kind, withData = false)

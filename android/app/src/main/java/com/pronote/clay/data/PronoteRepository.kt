@@ -3,6 +3,7 @@ package com.pronote.clay.data
 import com.pronote.clay.core.AverageCalculator
 import com.pronote.clay.core.Logger
 import com.pronote.clay.core.PronoteError
+import kotlinx.coroutines.delay
 import com.pronote.clay.core.PronoteResult
 import com.pronote.clay.data.local.LocalDataSource
 import com.pronote.clay.data.remote.PronoteCompatibilityLayer
@@ -174,13 +175,18 @@ class PronoteRepositoryImpl(
 
         // Une session Pronote meurt sans prévenir : autre appareil connecté,
         // purge côté serveur, jeton jamais émis… Le mot de passe gardé dans le
-        // coffre permet de la refabriquer. On rejoue donc la collecte une seule
-        // fois, au lieu de renvoyer l'utilisateur à l'écran de connexion.
-        if (result is PronoteResult.Failure && canRecover(result.error)) {
-            if (sessions.refreshSession(accountId) != null) {
-                stored = sessions.load(accountId) ?: stored
-                result = fetchSnapshot(stored, periodId)
-            }
+        // coffre permet de la refabriquer. On rejoue donc la collecte, plusieurs
+        // fois de suite avec une pause croissante, au lieu de renvoyer
+        // l'utilisateur à l'écran de connexion.
+        var recoveries = 0
+        while (recoveries < MAX_SILENT_RECOVERIES) {
+            val failure = result as? PronoteResult.Failure ?: break
+            if (!canRecover(failure.error)) break
+            if (sessions.refreshSession(accountId) == null) break
+            stored = sessions.load(accountId) ?: stored
+            delay(SILENT_RECOVERY_PAUSE_MS * (recoveries + 1))
+            result = fetchSnapshot(stored, periodId)
+            recoveries++
         }
 
         if (result is PronoteResult.Failure) return result
@@ -441,3 +447,9 @@ class PronoteRepositoryImpl(
         const val MIN_POINTS_PER_WINDOW = 2
     }
 }
+
+/** Reconnexions silencieuses tentées à l'intérieur d'une même collecte. */
+private const val MAX_SILENT_RECOVERIES = 3
+
+/** Pause qui grandit entre deux reconnexions (anti-rafale côté serveur). */
+private const val SILENT_RECOVERY_PAUSE_MS = 250L

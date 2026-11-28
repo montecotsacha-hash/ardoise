@@ -6,6 +6,7 @@ import com.pronote.clay.core.PronoteResult
 import com.pronote.clay.data.PronoteRepository
 import com.pronote.clay.domain.Grade
 import com.pronote.clay.domain.SchoolSnapshot
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.text.SimpleDateFormat
@@ -104,13 +105,21 @@ class SyncManager(
         // Un jeton refusé (InvalidCredentials) est traité comme une session
         // expirée : le coffre sait refabriquer la session avec le mot de passe,
         // donc « identifiants incorrects » ne doit pas s'afficher pour ça.
-        val failure = result as? PronoteResult.Failure
-        val recoverable = failure != null &&
-            (failure.error is PronoteError.SessionExpired ||
-                failure.error is PronoteError.InvalidCredentials)
-        if (recoverable && repository.refreshSession(accountId) != null) {
+        // La session ne doit JAMAIS mourir : chaque refus passager (jeton
+        // invalidé par un autre appareil, purge côté serveur, identifiants
+        // refusés sur un jeton périmé) déclenche une reconnexion silencieuse
+        // puis une nouvelle collecte, plusieurs fois de suite. On ne renonce
+        // qu'après plusieurs essais, et même alors rien n'est effacé : le
+        // mot de passe reste dans le coffre pour la synchro suivante.
+        var attempts = 0
+        while (attempts < SILENT_RECONNECTS) {
+            val failure = result as? PronoteResult.Failure ?: break
+            if (!isRecoverable(failure.error)) break
+            if (repository.refreshSession(accountId) == null) break
             Logger.info("Session expirée : reconnexion puis nouvelle tentative")
+            delay(RECONNECT_PAUSE_MS * (attempts + 1))
             result = repository.sync(accountId, periodId)
+            attempts++
         }
 
         return when (result) {
@@ -151,6 +160,10 @@ class SyncManager(
         }
     }
 
+    /** Refus qu'une reconnexion silencieuse peut corriger. */
+    private fun isRecoverable(error: PronoteError): Boolean =
+        error is PronoteError.SessionExpired || error is PronoteError.InvalidCredentials
+
     /** Called when a session is replaced so the next sync is never skipped. */
     fun reset() {
         lastSyncAt = 0L
@@ -173,6 +186,12 @@ class SyncManager(
 
         /** Silence imposé quand Pronote suspend temporairement les connexions. */
         const val THROTTLE_BACKOFF_MS = 30 * 60 * 1000L
+
+        /** Reconnexions silencieuses tentées avant de rendre la main. */
+        const val SILENT_RECONNECTS = 3
+
+        /** Pause qui grandit entre deux reconnexions (anti-rafale). */
+        const val RECONNECT_PAUSE_MS = 400L
 
         private val AUTH_BACKOFF = PronoteError.SessionExpired
 

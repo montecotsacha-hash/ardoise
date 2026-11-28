@@ -169,7 +169,10 @@ class SyncManagerTest {
     }
 
     @Test
-    fun `gives up after a single reconnect attempt`() = runBlocking {
+    fun `une session refusee est rejouee trois fois avant de rendre la main`() = runBlocking {
+        // La session ne doit jamais « se déconnecter » sur un refus passager :
+        // chaque échec déclenche une reconnexion silencieuse, et on ne renonce
+        // qu'après toutes les tentatives — sans rien effacer du coffre.
         val repository = FakeRepository(snapshot(grade("a")), PronoteError.SessionExpired).apply {
             restoredSession = restorableSession()
         }
@@ -179,8 +182,8 @@ class SyncManagerTest {
 
         assertFalse(result.ok)
         assertEquals("Ta session Pronote a expiré.", result.error)
-        assertEquals(1, repository.restoreCount)
-        assertEquals(2, repository.syncCount)
+        assertEquals(SyncManager.SILENT_RECONNECTS, repository.restoreCount)
+        assertEquals(SyncManager.SILENT_RECONNECTS + 1, repository.syncCount)
     }
 
     @Test

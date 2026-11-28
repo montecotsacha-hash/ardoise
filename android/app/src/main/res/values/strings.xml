@@ -16,4 +16,11 @@
     <string name="widget_curve_desc">L’évolution de ta moyenne générale.</string>
     <string name="widget_duo_desc">Ta moyenne et sa courbe, côte à côte.</string>
     <string name="widget_grade_desc">Ta dernière note reçue.</string>
+    <string name="widget_notes_label">DERNIÈRES NOTES</string>
+    <string name="widget_subjects_label">MOYENNES PAR MATIÈRE</string>
+    <string name="widget_target_label">OBJECTIF 14</string>
+    <string name="widget_target_caption">au prochain contrôle</string>
+    <string name="widget_notes_desc">Tes trois dernières notes.</string>
+    <string name="widget_subjects_desc">Tes moyennes par matière.</string>
+    <string name="widget_target_desc">La note qu’il te reste à obtenir pour viser une moyenne.</string>
 </resources>

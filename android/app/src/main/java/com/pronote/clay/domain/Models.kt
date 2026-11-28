@@ -129,4 +129,6 @@ data class Preferences(
     val biometricLock: Boolean = false,
     /** Name shown after "Bonjour "; takes priority over the Pronote first name. */
     val displayName: String? = null,
+    /** Ordre des blocs de l'accueil (identifiants de `core.HomeBlocks`). */
+    val homeBlocks: List<String> = emptyList(),
 )

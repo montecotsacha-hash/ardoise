@@ -4,13 +4,9 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
@@ -21,8 +17,8 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -40,11 +36,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Menu
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.WifiOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -53,39 +49,44 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathMeasure
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.pronote.clay.core.AverageCalculator
 import com.pronote.clay.core.GradeTarget
+import com.pronote.clay.core.HomeBlocks
 import com.pronote.clay.domain.Grade
+import com.pronote.clay.domain.HistoryPoint
+import com.pronote.clay.domain.SchoolSnapshot
 import com.pronote.clay.domain.Subject
+import com.pronote.clay.domain.SubjectRow
 import com.pronote.clay.ui.components.ClayButton
 import com.pronote.clay.ui.components.ClayEmptyState
 import com.pronote.clay.ui.components.ClayErrorBox
-import com.pronote.clay.ui.components.ClayIconButton
 import com.pronote.clay.ui.components.ClayPill
 import com.pronote.clay.ui.components.ClayReveal
 import com.pronote.clay.ui.components.ClaySectionTitle
 import com.pronote.clay.ui.components.ClaySurface
 import com.pronote.clay.ui.components.clay
-import com.pronote.clay.ui.components.clayInset
 import com.pronote.clay.ui.theme.ClayDimens
-import com.pronote.clay.ui.theme.frosted
 import com.pronote.clay.ui.theme.subjectAccent
 import com.pronote.clay.ui.viewmodel.HomeUiState
 import com.pronote.clay.ui.viewmodel.HomeViewModel
@@ -100,6 +101,10 @@ import java.util.Locale
  * even fully offline. Refreshing, offline and sync-error banners are derived
  * from the explicit [HomeUiState].
  *
+ * Les blocs (moyenne, évolution, matières, notes, objectif) sont réordonnables :
+ * un appui long sur un bloc le décolle, le glissement le place à la place d'un
+ * autre, et l'ordre est mémorisé dans les préférences.
+ *
  * The screen NEVER draws another screen on top of itself: the timetable and the
  * settings are full sections of their own, reached from the navigation menu.
  */
@@ -113,6 +118,7 @@ fun HomeScreen(
     val selectedPeriod by viewModel.selectedPeriod.collectAsState()
     // Courbe de l'année, tous trimestres déjà consultés confondus.
     val history by viewModel.history.collectAsState()
+    val blocks by viewModel.homeBlocks.collectAsState()
 
     val success = state as? HomeUiState.Success
     val offline = state as? HomeUiState.Offline
@@ -122,7 +128,6 @@ fun HomeScreen(
     val snapshot = success?.snapshot ?: offline?.snapshot ?: issue?.snapshot ?: error?.snapshot
     val average = success?.average ?: offline?.average ?: issue?.average
     val subjects = success?.subjects ?: offline?.subjects ?: issue?.subjects ?: error?.subjects.orEmpty()
-    val refreshing = success?.refreshing ?: false
     // Un trimestre sans note n'est pas une erreur : on le dit plutôt que de
     // laisser croire que la connexion a échoué.
     val periodEmptyHint = if (periods.size > 1) {
@@ -133,66 +138,114 @@ fun HomeScreen(
     // le détail vit ici, dans un panneau qui monte du bas.
     var selectedGrade by remember { mutableStateOf<Grade?>(null) }
 
+    // Glissement d'un bloc : l'identifiant décollé et le décalage sous le doigt.
+    val listState = rememberLazyListState()
+    var draggedId by remember { mutableStateOf<String?>(null) }
+    var dragDelta by remember { mutableFloatStateOf(0f) }
+
     Box(Modifier.fillMaxSize()) {
-    LazyColumn(
-        // The Activity draws edge-to-edge; keep the dashboard inside the
-        // status-bar/display-cutout and navigation-bar safe areas.
-        modifier = Modifier.fillMaxSize().safeDrawingPadding(),
-        contentPadding = PaddingValues(
-            start = ClayDimens.ScreenPadding,
-            end = ClayDimens.ScreenPadding,
-            bottom = 128.dp,
-        ),
-    ) {
-        item {
-            ClayReveal {
-                HomeTopBar(snapshot, refreshing, viewModel)
+        LazyColumn(
+            state = listState,
+            // The Activity draws edge-to-edge; keep the dashboard inside the
+            // status-bar/display-cutout and navigation-bar safe areas.
+            modifier = Modifier.fillMaxSize().safeDrawingPadding(),
+            contentPadding = PaddingValues(
+                start = ClayDimens.ScreenPadding,
+                end = ClayDimens.ScreenPadding,
+                bottom = 128.dp,
+            ),
+        ) {
+            item(key = "header") {
+                ClayReveal { HomeTopBar(snapshot, viewModel) }
             }
-        }
-        item { Spacer(Modifier.height(18.dp)) }
+            item(key = "header-gap") { Spacer(Modifier.height(18.dp)) }
 
-        homeStatusBanners(
-            snapshot = snapshot,
-            online = online,
-            offline = offline != null,
-            issue = issue,
-            error = error,
-        )
+            homeStatusBanners(
+                snapshot = snapshot,
+                online = online,
+                offline = offline != null,
+                issue = issue,
+                error = error,
+            )
 
-        if (periods.size > 1) {
-            item {
-                ClayReveal(index = 1) {
-                    Column {
-                        PeriodSelector(
-                            periods = periods,
-                            selectedId = selectedPeriod,
-                            onSelect = viewModel::selectPeriod,
+            if (periods.size > 1) {
+                item(key = "periods") {
+                    ClayReveal(index = 1) {
+                        Column {
+                            PeriodSelector(
+                                periods = periods,
+                                selectedId = selectedPeriod,
+                                onSelect = viewModel::selectPeriod,
+                            )
+                            Spacer(Modifier.height(14.dp))
+                        }
+                    }
+                }
+            }
+
+            items(blocks, key = { "block-$it" }) { id ->
+                val key = "block-$id"
+                val dragging = draggedId == id
+                Box(
+                    modifier = Modifier
+                        .zIndex(if (dragging) 2f else 0f)
+                        .graphicsLayer { translationY = if (dragging) dragDelta else 0f }
+                        .pointerInput(id) {
+                            // Un appui long décolle le bloc ; ensuite le doigt le
+                            // déplace et le bloc voisin dont il prend la place est
+                            // échangé en direct.
+                            fun moveUnderFinger(dy: Float) {
+                                dragDelta += dy
+                                val visible = listState.layoutInfo.visibleItemsInfo
+                                val own = visible.firstOrNull { it.key == key } ?: return
+                                val centre = own.offset + own.size / 2f + dragDelta
+                                val target = visible.firstOrNull { other ->
+                                    val otherKey = other.key as? String ?: return@firstOrNull false
+                                    otherKey.startsWith("block-") && otherKey != key &&
+                                        centre >= other.offset &&
+                                        centre <= other.offset + other.size
+                                } ?: return
+                                val targetId = (target.key as String).removePrefix("block-")
+                                viewModel.moveHomeBlock(id, targetId)
+                                // Le bloc reste sous le doigt malgré le nouvel ordre.
+                                dragDelta = own.offset + dragDelta - target.offset
+                            }
+
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = {
+                                    draggedId = id
+                                    dragDelta = 0f
+                                },
+                                onDrag = { change, amount ->
+                                    change.consume()
+                                    moveUnderFinger(amount.y)
+                                },
+                                onDragEnd = {
+                                    draggedId = null
+                                    dragDelta = 0f
+                                },
+                                onDragCancel = {
+                                    draggedId = null
+                                    dragDelta = 0f
+                                },
+                            )
+                        },
+                ) {
+                    ClayReveal(index = 1) {
+                        HomeBlock(
+                            id = id,
+                            average = average,
+                            snapshot = snapshot,
+                            subjects = subjects,
+                            history = history,
+                            periodLabel = periods.firstOrNull { it.id == selectedPeriod }?.name,
+                            periodEmptyHint = periodEmptyHint,
+                            onSelectGrade = { selectedGrade = it },
                         )
-                        Spacer(Modifier.height(14.dp))
                     }
                 }
             }
         }
-
-        item {
-            ClayReveal(index = 1) {
-                if (average != null) {
-                    AverageCard(average, periodLabel = periods.firstOrNull { it.id == selectedPeriod }?.name)
-                } else {
-                    ClayEmptyState(
-                        "Pas encore de moyenne",
-                        periodEmptyHint ?: "Connecte-toi et lance une synchronisation.",
-                    )
-                }
-            }
-        }
-        item { Spacer(Modifier.height(ClayDimens.SectionGap)) }
-
-        homeHistorySection(history)
-        homeTargetSection(average?.value, snapshot)
-        homeSubjectsSection(subjects, periodEmptyHint)
-        homeGradesSection(snapshot, periodEmptyHint) { selectedGrade = it }
-    }
 
         GradeDetailSheet(
             grade = selectedGrade,
@@ -207,22 +260,57 @@ fun HomeScreen(
     }
 }
 
+/** Un bloc réordonnable de l'accueil, rendu seul pour que le glissement reste net. */
+@Composable
+private fun HomeBlock(
+    id: String,
+    average: com.pronote.clay.domain.AverageSummary?,
+    snapshot: SchoolSnapshot?,
+    subjects: List<SubjectRow>,
+    history: List<HistoryPoint>,
+    periodLabel: String?,
+    periodEmptyHint: String?,
+    onSelectGrade: (Grade) -> Unit,
+) {
+    when (id) {
+        HomeBlocks.AVERAGE -> Column {
+            if (average != null) {
+                AverageCard(average, periodLabel = periodLabel)
+            } else {
+                ClayEmptyState(
+                    "Pas encore de moyenne",
+                    periodEmptyHint ?: "Connecte-toi et lance une synchronisation.",
+                )
+            }
+            Spacer(Modifier.height(ClayDimens.SectionGap))
+        }
+
+        HomeBlocks.HISTORY -> HomeHistoryBlock(history)
+        HomeBlocks.SUBJECTS -> HomeSubjectsBlock(subjects, periodEmptyHint)
+        HomeBlocks.GRADES -> HomeGradesBlock(snapshot, periodEmptyHint, onSelectGrade)
+
+        // L'objectif de moyenne ferme la page par défaut : c'est la question
+        // qu'on se pose après avoir lu ses notes, pas avant.
+        HomeBlocks.TARGET -> HomeTargetBlock(average?.value, snapshot)
+    }
+}
+
 /** Bandeaux hors ligne, synchro partielle et erreur, au-dessus de la moyenne. */
 private fun LazyListScope.homeStatusBanners(
-    snapshot: com.pronote.clay.domain.SchoolSnapshot?,
+    snapshot: SchoolSnapshot?,
     online: Boolean,
     offline: Boolean,
     issue: HomeUiState.SyncIssue?,
     error: HomeUiState.Error?,
 ) {
     if (!online || offline) {
-        item {
+        item(key = "offline") {
             ClayReveal(index = 1) { OfflineBanner(snapshot) }
             Spacer(Modifier.height(14.dp))
         }
     }
     if (issue != null) {
-        item {
+        item(key = "issue") {
             ClayReveal(index = 1) {
                 Column {
                     ClayErrorBox(message = issue.message, hint = issue.hint)
@@ -232,7 +320,7 @@ private fun LazyListScope.homeStatusBanners(
         }
     }
     if (error != null) {
-        item {
+        item(key = "error") {
             ClayReveal(index = 1) {
                 Column {
                     ClayErrorBox(message = error.message, hint = error.hint)
@@ -244,95 +332,92 @@ private fun LazyListScope.homeStatusBanners(
 }
 
 /** Courbe d'évolution — masquée tant qu'il n'y a pas deux points à relier. */
-private fun LazyListScope.homeHistorySection(history: List<com.pronote.clay.domain.HistoryPoint>) {
+@Composable
+private fun HomeHistoryBlock(history: List<HistoryPoint>) {
     if (history.size < 2) return
 
-    item {
-        var periodDays by remember { mutableStateOf(com.pronote.clay.data.HistoryPeriods.ALL_DAYS) }
-
-        ClayReveal(index = 2) {
-            Column {
-                ClaySectionTitle("Évolution")
-                Spacer(Modifier.height(12.dp))
-                HistoryPeriodSelector(
-                    selectedDays = periodDays,
-                    onSelect = { periodDays = it },
-                )
-                Spacer(Modifier.height(10.dp))
-                HistoryChart(history, periodDays)
-            }
-        }
+    var periodDays by remember { mutableStateOf(com.pronote.clay.data.HistoryPeriods.ALL_DAYS) }
+    Column {
+        ClaySectionTitle("Évolution")
+        Spacer(Modifier.height(12.dp))
+        HistoryPeriodSelector(
+            selectedDays = periodDays,
+            onSelect = { periodDays = it },
+        )
+        Spacer(Modifier.height(10.dp))
+        HistoryChart(history, periodDays)
+        Spacer(Modifier.height(ClayDimens.SectionGap))
     }
-    item { Spacer(Modifier.height(ClayDimens.SectionGap)) }
 }
 
 /** Liste des matières, avec son état vide. */
-private fun LazyListScope.homeSubjectsSection(
-    subjects: List<com.pronote.clay.domain.SubjectRow>,
+@Composable
+private fun HomeSubjectsBlock(
+    subjects: List<SubjectRow>,
     emptyHint: String? = null,
 ) {
-    item {
-        ClayReveal(index = 3) {
-            Column {
-                ClaySectionTitle("Matières")
-                Spacer(Modifier.height(12.dp))
-            }
-        }
-    }
-    if (subjects.isEmpty()) {
-        item {
+    Column {
+        ClaySectionTitle("Matières")
+        Spacer(Modifier.height(12.dp))
+        if (subjects.isEmpty()) {
             ClayEmptyState(
                 "Aucune matière",
                 emptyHint ?: "Les matières apparaîtront après une synchronisation.",
             )
-        }
-    } else {
-        // `index` feeds the stagger so the subjects cascade down the list
-        // instead of all landing on the same frame.
-        itemsIndexed(subjects, key = { _, row -> row.subject.id }) { index, row ->
-            ClayReveal(index = 3 + index) {
-                Column {
-                    SubjectRowCard(row)
-                    Spacer(Modifier.height(ClayDimens.ItemGap))
-                }
+        } else {
+            subjects.forEach { row ->
+                SubjectRowCard(row)
+                Spacer(Modifier.height(ClayDimens.ItemGap))
             }
         }
+        Spacer(Modifier.height(ClayDimens.SectionGap))
     }
 }
 
 /** Huit dernières notes, avec leur état vide. */
-private fun LazyListScope.homeGradesSection(
-    snapshot: com.pronote.clay.domain.SchoolSnapshot?,
+@Composable
+private fun HomeGradesBlock(
+    snapshot: SchoolSnapshot?,
     emptyHint: String? = null,
     onSelect: (Grade) -> Unit,
 ) {
-    item {
-        ClayReveal(index = 5) {
-            Column {
-                Spacer(Modifier.height(ClayDimens.SectionGap))
-                ClaySectionTitle("Notes récentes")
-                Spacer(Modifier.height(12.dp))
-            }
-        }
-    }
-    val grades = snapshot?.grades.orEmpty().sortedByDescending { it.date }
-    if (grades.isEmpty()) {
-        item {
+    Column {
+        ClaySectionTitle("Notes récentes")
+        Spacer(Modifier.height(12.dp))
+        val grades = snapshot?.grades.orEmpty().sortedByDescending { it.date }
+        if (grades.isEmpty()) {
             ClayEmptyState(
                 "Aucune note",
                 emptyHint ?: "Les nouvelles notes s'afficheront ici.",
             )
-        }
-    } else {
-        itemsIndexed(grades.take(8), key = { _, grade -> grade.id }) { index, grade ->
-            ClayReveal(index = 2 + index) {
-                Column {
-                    GradeRowCard(grade, snapshot?.subjects) { onSelect(grade) }
-                    Spacer(Modifier.height(8.dp))
-                }
+        } else {
+            grades.take(8).forEach { grade ->
+                GradeRowCard(grade, snapshot?.subjects) { onSelect(grade) }
+                Spacer(Modifier.height(8.dp))
             }
         }
+        Spacer(Modifier.height(ClayDimens.SectionGap))
     }
+}
+
+/**
+ * « Quelle note me faut-il ? »
+ *
+ * Le calcul ne sort pas de l'appareil : il part de la moyenne affichée et du
+ * poids des notes déjà reçues, puis répond sur le prochain contrôle.
+ */
+@Composable
+private fun HomeTargetBlock(
+    average: Double?,
+    snapshot: SchoolSnapshot?,
+) {
+    if (average == null || snapshot == null) return
+    val weight = GradeTarget.weightOf(
+        snapshot.grades.filter { it.countsTowardAverage }.map { it.coefficient },
+    )
+    if (weight <= 0.0) return
+
+    TargetCard(average = average, weight = weight)
 }
 
 /**
@@ -359,12 +444,12 @@ fun greetingName(
 
 @Composable
 private fun HomeTopBar(
-    snapshot: com.pronote.clay.domain.SchoolSnapshot?,
-    refreshing: Boolean,
+    snapshot: SchoolSnapshot?,
     viewModel: HomeViewModel,
 ) {
-    // En-tête minimal : le nom, l'établissement, l'actualisation. Pas de
-    // hamburger, pas de cadre — la navigation vit en bas de l'écran.
+    // En-tête minimal : le nom et l'établissement. La synchro est silencieuse
+    // (démarrage, retour du réseau, tâche périodique) : plus de bouton
+    // d'actualisation à toucher.
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -398,39 +483,11 @@ private fun HomeTopBar(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        RefreshButton(refreshing) { viewModel.refresh() }
     }
 }
 
 @Composable
-private fun RefreshButton(refreshing: Boolean, onClick: () -> Unit) {
-    val transition = rememberInfiniteTransition(label = "sync-spin")
-    val angle by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(tween(900, easing = LinearEasing)),
-        label = "sync-angle",
-    )
-    androidx.compose.material3.Surface(
-        modifier = Modifier.size(ClayDimens.MinTouchTarget),
-        shape = androidx.compose.foundation.shape.CircleShape,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        onClick = onClick,
-    ) {
-        Box(Modifier.size(ClayDimens.MinTouchTarget), contentAlignment = Alignment.Center) {
-            Icon(
-                Icons.Rounded.Refresh,
-                contentDescription = "Actualiser",
-                modifier = Modifier
-                    .size(20.dp)
-                    .rotate(if (refreshing) angle else 0f),
-            )
-        }
-    }
-}
-
-@Composable
-private fun OfflineBanner(snapshot: com.pronote.clay.domain.SchoolSnapshot?) {
+private fun OfflineBanner(snapshot: SchoolSnapshot?) {
     ClaySurface(
         modifier = Modifier.fillMaxWidth(),
         depth = 6.dp,
@@ -537,7 +594,6 @@ private fun AverageCard(
                         expandHorizontally(tween(360, delayMillis = 260)),
                     exit = fadeOut(tween(120)),
                 ) {
-                    val up = (average.delta ?: 0.0) >= 0.0
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
                             deltaDisplay,
@@ -635,7 +691,7 @@ private fun HistoryPeriodSelector(
  * change reads as a movement instead of a jump cut.
  */
 @Composable
-private fun HistoryChart(history: List<com.pronote.clay.domain.HistoryPoint>, periodDays: Long = com.pronote.clay.data.HistoryPeriods.ALL_DAYS) {
+private fun HistoryChart(history: List<HistoryPoint>, periodDays: Long = com.pronote.clay.data.HistoryPeriods.ALL_DAYS) {
     val accent = MaterialTheme.colorScheme.primary
     ClaySurface(modifier = Modifier.fillMaxWidth(), depth = 8.dp) {
         Column(Modifier.padding(18.dp)) {
@@ -684,35 +740,9 @@ private fun HistoryChart(history: List<com.pronote.clay.domain.HistoryPoint>, pe
                     drawCircle(
                         accent,
                         radius = 9f,
-                        center = androidx.compose.ui.geometry.Offset(x(points.size - 1), y(points.last().value)),
+                        center = Offset(x(points.size - 1), y(points.last().value)),
                     )
                 }
-            }
-        }
-    }
-}
-
-/**
- * « Quelle note me faut-il ? »
- *
- * Le calcul ne sort pas de l'appareil : il part de la moyenne affichée et du
- * poids des notes déjà reçues, puis répond sur le prochain contrôle.
- */
-private fun LazyListScope.homeTargetSection(
-    average: Double?,
-    snapshot: com.pronote.clay.domain.SchoolSnapshot?,
-) {
-    if (average == null || snapshot == null) return
-    val weight = GradeTarget.weightOf(
-        snapshot.grades.filter { it.countsTowardAverage }.map { it.coefficient },
-    )
-    if (weight <= 0.0) return
-
-    item {
-        ClayReveal(index = 3) {
-            Column {
-                TargetCard(average = average, weight = weight)
-                Spacer(Modifier.height(ClayDimens.SectionGap))
             }
         }
     }
@@ -802,7 +832,7 @@ private fun targetAnswer(required: Double?, target: Double, coefficient: Double)
 }
 
 @Composable
-private fun SubjectRowCard(row: com.pronote.clay.domain.SubjectRow) {
+private fun SubjectRowCard(row: SubjectRow) {
     val accent = subjectAccent(row.subject.colorIndex)
     ClaySurface(
         modifier = Modifier.fillMaxWidth(),

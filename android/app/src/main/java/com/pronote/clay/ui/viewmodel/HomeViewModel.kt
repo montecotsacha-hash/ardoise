@@ -3,6 +3,7 @@ package com.pronote.clay.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pronote.clay.AppContainer
+import com.pronote.clay.core.HomeBlocks
 import com.pronote.clay.core.PronoteError
 import com.pronote.clay.core.PronoteResult
 import com.pronote.clay.core.SchoolSearch
@@ -297,6 +298,25 @@ class HomeViewModel(
 
     fun updateLoginPassword(value: String) {
         _loginDraft.value = _loginDraft.value.copy(password = value)
+    }
+
+    /**
+     * Ordre des blocs de l'accueil. Persisté avec les préférences : la
+     * disposition choisie à l'appui long survit à la fermeture de l'app.
+     */
+    private val _homeBlocks = MutableStateFlow(
+        HomeBlocks.normalize(container.preferences.load().homeBlocks),
+    )
+    val homeBlocks: StateFlow<List<String>> = _homeBlocks.asStateFlow()
+
+    /** Déplace un bloc de l'accueil à la place d'un autre (glissement). */
+    fun moveHomeBlock(id: String, targetId: String) {
+        val next = HomeBlocks.move(_homeBlocks.value, id, targetId)
+        if (next == _homeBlocks.value) return
+        _homeBlocks.value = next
+        val prefs = _preferences.value.copy(homeBlocks = next)
+        container.preferences.save(prefs)
+        _preferences.value = prefs
     }
 
     private var sessionValid = false
@@ -596,6 +616,7 @@ class HomeViewModel(
     fun updatePreferences(preferences: Preferences) {
         container.preferences.save(preferences)
         _preferences.value = preferences
+        _homeBlocks.value = HomeBlocks.normalize(preferences.homeBlocks)
         // Le thème et les couleurs font aussi partie des widgets.
         container.refreshWidgets()
     }

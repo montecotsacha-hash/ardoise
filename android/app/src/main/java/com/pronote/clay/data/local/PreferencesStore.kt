@@ -19,6 +19,11 @@ class PreferencesStore(context: Context) {
         dynamicColor = prefs.getBoolean("dynamicColor", true),
         biometricLock = prefs.getBoolean("biometricLock", false),
         displayName = prefs.getString("displayName", null)?.takeIf { it.isNotBlank() },
+        homeBlocks = prefs.getString("homeBlocks", null)
+            ?.split(",")
+            ?.map { it.trim() }
+            ?.filter { it.isNotEmpty() }
+            .orEmpty(),
     )
 
     fun save(preferences: Preferences) {
@@ -29,6 +34,7 @@ class PreferencesStore(context: Context) {
             .putBoolean("dynamicColor", preferences.dynamicColor)
             .putBoolean("biometricLock", preferences.biometricLock)
             .putString("displayName", preferences.displayName?.takeIf { it.isNotBlank() })
+            .putString("homeBlocks", preferences.homeBlocks.joinToString(","))
             .apply {
                 preferences.darkTheme?.let { putBoolean("darkTheme", it) }
                 if (preferences.darkTheme == null) remove("darkTheme")
